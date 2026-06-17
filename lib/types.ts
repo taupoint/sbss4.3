@@ -112,6 +112,7 @@ export interface Supplier {
   outstanding_balance: number;
   total_purchases: number;
   rating?: number;
+  notes?: string;
   is_active: boolean;
   created_at: string;
 }
@@ -348,5 +349,24 @@ export interface ActivityLog {
   entity_id?: string;
   entity_label?: string;
   metadata?: Record<string, unknown>;
+  created_at: string;
+}
+
+export type PaymentMethod = 'cash' | 'bank_transfer' | 'bkash' | 'nagad' | 'rocket' | 'sslcommerz' | 'cheque' | 'card';
+
+export interface Payment {
+  id: string;
+  payment_number: string;
+  payment_type: 'received' | 'made';
+  reference_type: 'invoice' | 'purchase_order' | 'advance' | 'refund';
+  reference_id: string;
+  customer_id?: string;
+  supplier_id?: string;
+  amount: number;
+  payment_method: PaymentMethod;
+  payment_date: string;
+  reference_number?: string;
+  bank_account?: string;
+  notes?: string;
   created_at: string;
 }

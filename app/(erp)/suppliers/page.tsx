@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/format';
 import { toast } from '@/hooks/use-toast';
-import { Truck, Plus, Search, Edit, Trash2, Phone, Mail, Star, X } from 'lucide-react';
+import { Truck, Plus, Search, Edit, Trash2, Phone, Mail, Star, X, Eye } from 'lucide-react';
+import Link from 'next/link';
 import type { Supplier } from '@/lib/types';
 
 export default function SuppliersPage() {
@@ -126,8 +127,9 @@ export default function SuppliersPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => setEditingSupplier(s)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition"><Edit className="w-3.5 h-3.5" /></button>
-                      <button onClick={() => setDeletingSupplier(s)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <Link href={`/suppliers/${s.id}`} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition" title="View Details"><Eye className="w-3.5 h-3.5" /></Link>
+                      <button onClick={() => setEditingSupplier(s)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition" title="Edit"><Edit className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setDeletingSupplier(s)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition" title="Deactivate"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

@@ -7,9 +7,10 @@ import { formatCurrency, formatDate } from '@/lib/format';
 import { toast } from '@/hooks/use-toast';
 import {
   ShoppingCart, Plus, Search, Eye, X, Trash2,
-  TrendingUp, Clock, CheckCircle2, AlertCircle, Printer
+  TrendingUp, Clock, CheckCircle2, AlertCircle, Printer,
+  DollarSign, Send, CreditCard
 } from 'lucide-react';
-import type { Invoice, InvoiceStatus, Customer, Product } from '@/lib/types';
+import type { Invoice, InvoiceStatus, Customer, Product, Payment, PaymentMethod } from '@/lib/types';
 
 const statusConfig: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
   draft: { label: 'Draft', color: 'text-gray-600', bg: 'bg-gray-100' },
@@ -46,6 +47,8 @@ export default function SalesPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<InvoiceWithCustomer | null>(null);
   const [invoiceItems, setInvoiceItems] = useState<any[]>([]);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentInvoice, setPaymentInvoice] = useState<InvoiceWithCustomer | null>(null);
 
   useEffect(() => { loadData(); }, []);
 
@@ -77,6 +80,25 @@ export default function SalesPage() {
       .eq('invoice_id', invoice.id);
     setInvoiceItems(data || []);
     setViewingInvoice(invoice);
+  }
+
+  function openPaymentModal(invoice: InvoiceWithCustomer) {
+    setPaymentInvoice(invoice);
+    setShowPaymentModal(true);
+  }
+
+  async function updateInvoiceStatus(invoice: InvoiceWithCustomer, newStatus: InvoiceStatus) {
+    const { error } = await supabase
+      .from('invoices')
+      .update({ status: newStatus, updated_at: new Date().toISOString() })
+      .eq('id', invoice.id);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Success', description: `Invoice marked as ${statusConfig[newStatus].label}` });
+      loadData();
+    }
   }
 
   const filtered = invoices.filter(i =>
@@ -160,9 +182,21 @@ export default function SalesPage() {
                     <td className="px-4 py-3 text-right text-sm font-bold text-red-600">{formatCurrency(inv.balance_due || (inv.total_amount - inv.amount_paid))}</td>
                     <td className="px-4 py-3"><span className={`badge-status ${cfg.bg} ${cfg.color}`}>{cfg.label}</span></td>
                     <td className="px-4 py-3 text-right">
-                      <button onClick={() => viewInvoiceDetails(inv)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition ml-auto">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {inv.status === 'draft' && (
+                          <button onClick={() => updateInvoiceStatus(inv, 'sent')} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition" title="Mark as Sent">
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        {(inv.status === 'sent' || inv.status === 'partially_paid') && (inv.balance_due || inv.total_amount - inv.amount_paid) > 0 && (
+                          <button onClick={() => openPaymentModal(inv)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-green-50 text-muted-foreground hover:text-green-600 transition" title="Record Payment">
+                            <DollarSign className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button onClick={() => viewInvoiceDetails(inv)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition" title="View Details">
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -189,6 +223,16 @@ export default function SalesPage() {
           invoice={viewingInvoice}
           items={invoiceItems}
           onClose={() => setViewingInvoice(null)}
+          onRecordPayment={() => { setViewingInvoice(null); openPaymentModal(viewingInvoice); }}
+          onUpdateStatus={(status) => { setViewingInvoice(null); updateInvoiceStatus(viewingInvoice, status); }}
+        />
+      )}
+
+      {showPaymentModal && paymentInvoice && (
+        <RecordPaymentModal
+          invoice={paymentInvoice}
+          onClose={() => { setShowPaymentModal(false); setPaymentInvoice(null); }}
+          onSaved={() => { setShowPaymentModal(false); setPaymentInvoice(null); loadData(); }}
         />
       )}
     </div>
@@ -383,8 +427,15 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
   );
 }
 
-function ViewInvoiceModal({ invoice, items, onClose }: { invoice: InvoiceWithCustomer; items: any[]; onClose: () => void }) {
+function ViewInvoiceModal({ invoice, items, onClose, onRecordPayment, onUpdateStatus }: {
+  invoice: InvoiceWithCustomer;
+  items: any[];
+  onClose: () => void;
+  onRecordPayment: () => void;
+  onUpdateStatus: (status: InvoiceStatus) => void;
+}) {
   const cfg = statusConfig[invoice.status as InvoiceStatus] || statusConfig.draft;
+  const balance = invoice.balance_due || (invoice.total_amount - invoice.amount_paid);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -467,11 +518,161 @@ function ViewInvoiceModal({ invoice, items, onClose }: { invoice: InvoiceWithCus
               </div>
               <div className="flex justify-between font-bold text-base border-t border-border pt-2">
                 <span>Balance Due</span>
-                <span className="text-red-600">{formatCurrency(invoice.balance_due || invoice.total_amount - invoice.amount_paid)}</span>
+                <span className="text-red-600">{formatCurrency(balance)}</span>
               </div>
             </div>
           </div>
+
+          {invoice.status !== 'paid' && invoice.status !== 'cancelled' && invoice.status !== 'refunded' && (
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-border">
+              {invoice.status === 'draft' && (
+                <button onClick={() => onUpdateStatus('sent')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition">
+                  <Send className="w-4 h-4" />Mark as Sent
+                </button>
+              )}
+              {balance > 0 && (invoice.status === 'sent' || invoice.status === 'partially_paid') && (
+                <button onClick={onRecordPayment} className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition">
+                  <CreditCard className="w-4 h-4" />Record Payment
+                </button>
+              )}
+            </div>
+          )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function RecordPaymentModal({ invoice, onClose, onSaved }: { invoice: InvoiceWithCustomer; onClose: () => void; onSaved: () => void }) {
+  const balance = invoice.balance_due || (invoice.total_amount - invoice.amount_paid);
+  const [form, setForm] = useState({
+    amount: balance,
+    payment_method: 'cash' as PaymentMethod,
+    payment_date: new Date().toISOString().split('T')[0],
+    reference_number: '',
+    notes: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (form.amount <= 0) { setError('Amount must be greater than 0'); return; }
+    if (form.amount > balance) { setError(`Amount cannot exceed balance due (${formatCurrency(balance)})`); return; }
+
+    setSaving(true);
+    setError('');
+
+    const paymentNumber = `PAY-${Date.now().toString().slice(-6)}`;
+
+    const { error: payError } = await supabase.from('payments').insert({
+      payment_number: paymentNumber,
+      payment_type: 'received',
+      reference_type: 'invoice',
+      reference_id: invoice.id,
+      customer_id: invoice.customer_id,
+      amount: form.amount,
+      payment_method: form.payment_method,
+      payment_date: form.payment_date,
+      reference_number: form.reference_number || null,
+      notes: form.notes || null,
+    });
+
+    if (payError) { setError(payError.message); setSaving(false); return; }
+
+    const newAmountPaid = invoice.amount_paid + form.amount;
+    const newBalance = invoice.total_amount - newAmountPaid;
+    const newStatus: InvoiceStatus = newBalance <= 0 ? 'paid' : 'partially_paid';
+
+    const { error: invError } = await supabase
+      .from('invoices')
+      .update({
+        amount_paid: newAmountPaid,
+        status: newStatus,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', invoice.id);
+
+    if (invError) { setError(invError.message); setSaving(false); return; }
+
+    // Update customer outstanding balance
+    const { data: currentCustomer } = await supabase
+      .from('customers')
+      .select('outstanding_balance, total_purchases')
+      .eq('id', invoice.customer_id)
+      .single();
+
+    if (currentCustomer) {
+      await supabase
+        .from('customers')
+        .update({
+          outstanding_balance: Math.max(0, (currentCustomer.outstanding_balance || 0) - form.amount),
+          total_purchases: (currentCustomer.total_purchases || 0) + form.amount,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', invoice.customer_id);
+    }
+
+    toast({ title: 'Success', description: `Payment of ${formatCurrency(form.amount)} recorded` });
+    onSaved();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-bold">Record Payment</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {error && <div className="p-3 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>}
+
+          <div className="bg-muted/30 rounded-lg p-3 flex justify-between">
+            <span className="text-sm text-muted-foreground">Invoice Balance</span>
+            <span className="text-sm font-bold text-red-600">{formatCurrency(balance)}</span>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Payment Amount *</label>
+            <input type="number" min="0.01" max={balance} step="0.01" value={form.amount} onChange={e => setForm({ ...form, amount: parseFloat(e.target.value) || 0 })} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Payment Method *</label>
+            <select required value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value as PaymentMethod })} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none">
+              <option value="cash">Cash</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="bkash">bKash</option>
+              <option value="nagad">Nagad</option>
+              <option value="rocket">Rocket</option>
+              <option value="card">Card</option>
+              <option value="cheque">Cheque</option>
+              <option value="sslcommerz">SSLCommerz</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Payment Date</label>
+            <input type="date" value={form.payment_date} onChange={e => setForm({ ...form, payment_date: e.target.value })} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Reference Number</label>
+            <input type="text" value={form.reference_number} onChange={e => setForm({ ...form, reference_number: e.target.value })} placeholder="Transaction ID, cheque no." className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium mb-1">Notes</label>
+            <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition">Cancel</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-60">
+              {saving ? 'Recording...' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

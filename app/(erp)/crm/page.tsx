@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/format';
 import { toast } from '@/hooks/use-toast';
-import { Users, Plus, Search, Edit, Trash2, Phone, Mail, X, HardHat, Building2, Star, Palette } from 'lucide-react';
+import { Users, Plus, Search, Edit, Trash2, Phone, Mail, X, HardHat, Building2, Star, Palette, Eye } from 'lucide-react';
+import Link from 'next/link';
 import type { Customer, CustomerType } from '@/lib/types';
 
 const typeConfig: Record<CustomerType, { label: string; color: string; icon: React.ElementType }> = {
@@ -139,8 +140,9 @@ export default function CRMPage() {
                     <td className="px-4 py-3 text-right text-sm text-muted-foreground">{formatCurrency(c.credit_limit)}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setEditingCustomer(c)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition"><Edit className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => setDeletingCustomer(c)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <Link href={`/crm/${c.id}`} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition" title="View Details"><Eye className="w-3.5 h-3.5" /></Link>
+                        <button onClick={() => setEditingCustomer(c)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition" title="Edit"><Edit className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setDeletingCustomer(c)} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 transition" title="Deactivate"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
