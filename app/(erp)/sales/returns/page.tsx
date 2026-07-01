@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toast } from '@/hooks/use-toast';
-import { ArrowLeft, Search, RefreshCw, Plus, X, Package, FileText, Receipt, CreditCard, CircleCheck as CheckCircle, Clock, Eye, ArrowRightLeft } from 'lucide-react';
+import { ArrowLeft, Search, RefreshCw, Plus, X, Package, FileText, Receipt, CreditCard, CircleCheck as CheckCircle, Clock, Eye, ArrowRightLeft, Building2, Banknote, Wallet, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import type { Customer } from '@/lib/types';
 
@@ -12,10 +12,12 @@ interface Invoice {
   id: string;
   invoice_number: string;
   customer_id: string;
+  customer_name?: string;
   status: string;
   invoice_date: string;
   total_amount: number;
   amount_paid: number;
+  balance_due: number;
   customer?: { name: string; code: string };
 }
 
@@ -26,6 +28,7 @@ interface InvoiceItem {
   product: { name: string; sku: string; unit: string };
   quantity: number;
   unit_price: number;
+  cost_price: number;
   subtotal: number;
 }
 
@@ -34,13 +37,27 @@ interface SalesReturn {
   return_number: string;
   invoice_id: string;
   customer_id: string;
-  total_amount: number;
+  total_refund_amount: number;
   refund_method: string;
   status: string;
   notes: string;
   created_at: string;
+  journal_entry_id?: string;
+  payment_id?: string;
   invoice?: { invoice_number: string };
   customer?: { name: string };
+  items?: SalesReturnItem[];
+}
+
+interface SalesReturnItem {
+  id: string;
+  product_id: string;
+  product?: { name: string; sku: string };
+  quantity_returned: number;
+  unit_price: number;
+  cost_price: number;
+  subtotal: number;
+  reason: string;
 }
 
 export default function SalesReturnsPage() {
@@ -49,7 +66,6 @@ export default function SalesReturnsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingReturn, setViewingReturn] = useState<SalesReturn | null>(null);
 
@@ -57,32 +73,13 @@ export default function SalesReturnsPage() {
 
   async function loadData() {
     setLoading(true);
-    const [invRes, movementsRes] = await Promise.all([
+    const [invRes, returnsRes] = await Promise.all([
       supabase.from('invoices').select('*, customer:customers(name, code)').in('status', ['paid', 'partially_paid', 'sent']).order('invoice_date', { ascending: false }),
-      supabase.from('stock_movements').select('*, product:products(name, sku)').eq('movement_type', 'return_in').order('created_at', { ascending: false }),
+      supabase.from('sales_returns').select('*, invoice:invoices(invoice_number), customer:customers(name)').order('created_at', { ascending: false }),
     ]);
 
     setInvoices(invRes.data || []);
-
-    // Group movements by reference_id to create return records
-    const returnMap = new Map<string, SalesReturn>();
-    (movementsRes.data || []).forEach((m: any) => {
-      if (m.reference_id && !returnMap.has(m.reference_id)) {
-        returnMap.set(m.reference_id, {
-          id: m.id,
-          return_number: m.reference_number || `RET-${m.reference_id.slice(0, 8)}`,
-          invoice_id: m.reference_id,
-          customer_id: '',
-          total_amount: Number(m.quantity) * Number(m.unit_cost || 0),
-          refund_method: 'store_credit',
-          status: 'completed',
-          notes: m.notes || '',
-          created_at: m.created_at,
-        });
-      }
-    });
-
-    setReturns(Array.from(returnMap.values()));
+    setReturns(returnsRes.data || []);
     setLoading(false);
   }
 
@@ -94,20 +91,21 @@ export default function SalesReturnsPage() {
 
   const filteredReturns = returns.filter(r =>
     !search ||
-    r.return_number.toLowerCase().includes(search.toLowerCase())
+    r.return_number.toLowerCase().includes(search.toLowerCase()) ||
+    r.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   async function handleViewReturn(ret: SalesReturn) {
-    // Get the items from stock movements
     const { data: items } = await supabase
-      .from('stock_movements')
-      .select('*, product:products(name, sku, unit)')
-      .eq('reference_id', ret.invoice_id)
-      .eq('movement_type', 'return_in');
+      .from('sales_return_items')
+      .select('*, product:products(name, sku)')
+      .eq('sales_return_id', ret.id);
 
-    setViewingReturn({ ...ret, items: items || [] } as any);
+    setViewingReturn({ ...ret, items: items || [] });
     setShowViewModal(true);
   }
+
+  const totalRefundValue = returns.reduce((sum, r) => sum + Number(r.total_refund_amount), 0);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -118,7 +116,7 @@ export default function SalesReturnsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Sales Returns</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">Process customer returns and refunds</p>
+            <p className="text-muted-foreground text-sm mt-0.5">Process customer returns and refunds with proper accounting</p>
           </div>
         </div>
         <button
@@ -160,7 +158,7 @@ export default function SalesReturnsPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Refund Value</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(returns.reduce((sum, r) => sum + r.total_amount, 0))}</p>
+              <p className="text-lg font-bold text-foreground">{formatCurrency(totalRefundValue)}</p>
             </div>
           </div>
         </div>
@@ -187,7 +185,7 @@ export default function SalesReturnsPage() {
           <div className="px-4 py-3 border-b border-border">
             <h3 className="font-semibold text-foreground flex items-center gap-2">
               <FileText className="w-4 h-4" />
-              Select Invoice for Return
+              Eligible Invoices
             </h3>
           </div>
           <div className="max-h-[400px] overflow-y-auto">
@@ -203,8 +201,7 @@ export default function SalesReturnsPage() {
               filteredInvoices.slice(0, 10).map(inv => (
                 <div
                   key={inv.id}
-                  onClick={() => setSelectedInvoice(inv)}
-                  className={`px-4 py-3 border-b border-border cursor-pointer hover:bg-muted/50 transition ${selectedInvoice?.id === inv.id ? 'bg-blue-50' : ''}`}
+                  className="px-4 py-3 border-b border-border hover:bg-muted/50 transition"
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -244,10 +241,15 @@ export default function SalesReturnsPage() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-foreground text-sm">{ret.return_number}</p>
-                      <p className="text-xs text-muted-foreground">{formatDate(ret.created_at)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {ret.customer?.name || 'Customer'} | {ret.invoice?.invoice_number}
+                      </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className="font-bold text-foreground text-sm">{formatCurrency(ret.total_amount)}</p>
+                      <div className="text-right">
+                        <p className="font-bold text-foreground text-sm">{formatCurrency(ret.total_refund_amount)}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{ret.refund_method?.replace('_', ' ')}</p>
+                      </div>
                       <button
                         onClick={() => handleViewReturn(ret)}
                         className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-blue-50 text-muted-foreground hover:text-blue-600 transition"
@@ -272,7 +274,7 @@ export default function SalesReturnsPage() {
       )}
 
       {showViewModal && viewingReturn && (
-        <ViewReturnModal returnData={viewingReturn as any} onClose={() => setShowViewModal(false)} />
+        <ViewReturnModal returnData={viewingReturn} onClose={() => setShowViewModal(false)} />
       )}
     </div>
   );
@@ -287,9 +289,11 @@ function ReturnModal({ invoices, onClose, onSaved }: {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [returnItems, setReturnItems] = useState<Record<string, { qty: number; reason: string }>>({});
+  const [refundMethod, setRefundMethod] = useState<'cash' | 'bank_transfer' | 'store_credit'>('store_credit');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [createdJournalId, setCreatedJournalId] = useState<string | null>(null);
 
   async function selectInvoice(invoice: Invoice) {
     setSelectedInvoice(invoice);
@@ -307,6 +311,16 @@ function ReturnModal({ invoices, onClose, onSaved }: {
     inv.customer?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const totalRefundAmount = Object.entries(returnItems).reduce((sum, [itemId, { qty }]) => {
+    const item = items.find(i => i.id === itemId);
+    return sum + (item ? qty * item.unit_price : 0);
+  }, 0);
+
+  const totalCOGS = Object.entries(returnItems).reduce((sum, [itemId, { qty }]) => {
+    const item = items.find(i => i.id === itemId);
+    return sum + (item ? qty * (item.cost_price || 0) : 0);
+  }, 0);
+
   async function handleReturn() {
     if (!selectedInvoice) return;
 
@@ -320,25 +334,175 @@ function ReturnModal({ invoices, onClose, onSaved }: {
     setError('');
 
     try {
-      const returnId = crypto.randomUUID();
-      const returnNumber = `RET-${Date.now().toString().slice(-6)}`;
-      let totalRefund = 0;
+      // Generate return number
+      const { data: returnNumberData } = await supabase.rpc('generate_sales_return_number');
+      const returnNumber = returnNumberData || `SR-${Date.now().toString().slice(-6)}`;
 
       // Get default warehouse
       const { data: warehouse } = await supabase
         .from('warehouses')
         .select('id')
         .eq('is_default', true)
-        .single();
-
+        .maybeSingle();
       const warehouseId = warehouse?.id || '11000000-0000-0000-0000-000000000001';
 
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      const createdBy = user?.id;
+
+      // Get required accounts
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('id, code')
+        .in('code', ['4050', '1100', '1000', '1010', '2200', '1200', '5000']);
+
+      const getAccountId = (code: string) => accounts?.find(a => a.code === code)?.id;
+
+      const salesReturnsAccountId = getAccountId('4050');
+      const accountsReceivableId = getAccountId('1100');
+      const cashAccountId = getAccountId('1000');
+      const bankAccountId = getAccountId('1010');
+      const customerRefundPayableId = getAccountId('2200');
+      const inventoryAccountId = getAccountId('1200');
+      const cogsAccountId = getAccountId('5000');
+
+      if (!salesReturnsAccountId || !accountsReceivableId || !inventoryAccountId || !cogsAccountId) {
+        setError('Required accounts not found. Please check chart of accounts.');
+        setSaving(false);
+        return;
+      }
+
+      // Determine credit account based on refund method
+      let creditAccountId: string;
+      if (refundMethod === 'cash') {
+        creditAccountId = cashAccountId!;
+      } else if (refundMethod === 'bank_transfer') {
+        creditAccountId = bankAccountId!;
+      } else {
+        creditAccountId = customerRefundPayableId || accountsReceivableId;
+      }
+
+      // Create journal entry
+      const journalEntryNumber = `JE-${Date.now().toString().slice(-6)}`;
+      const journalLines: any[] = [];
+
+      // Line 1: Debit Sales Returns & Allowances (Revenue Reversal)
+      journalLines.push({
+        account_id: salesReturnsAccountId,
+        description: `Sales Return - ${returnNumber}`,
+        debit: totalRefundAmount,
+        credit: 0,
+        sort_order: 1
+      });
+
+      // Line 2: Credit Accounts Receivable or Cash/Bank/Refund Payable
+      journalLines.push({
+        account_id: creditAccountId,
+        description: refundMethod === 'store_credit' ? 'Customer Store Credit' : `Refund via ${refundMethod}`,
+        debit: 0,
+        credit: totalRefundAmount,
+        sort_order: 2
+      });
+
+      // Line 3: Debit Inventory (COGS Reversal) - if we have cost prices
+      if (totalCOGS > 0) {
+        journalLines.push({
+          account_id: inventoryAccountId,
+          description: 'Inventory restored from return',
+          debit: totalCOGS,
+          credit: 0,
+          sort_order: 3
+        });
+
+        // Line 4: Credit COGS
+        journalLines.push({
+          account_id: cogsAccountId,
+          description: 'COGS reversal for returned items',
+          debit: 0,
+          credit: totalCOGS,
+          sort_order: 4
+        });
+      }
+
+      // Insert journal entry
+      const { data: journalEntry, error: journalError } = await supabase
+        .from('journal_entries')
+        .insert({
+          entry_number: journalEntryNumber,
+          entry_date: new Date().toISOString().split('T')[0],
+          description: `Sales Return ${returnNumber} - Invoice ${selectedInvoice.invoice_number}`,
+          reference_type: 'sales_return',
+          total_debit: totalRefundAmount + totalCOGS,
+          total_credit: totalRefundAmount + totalCOGS,
+          is_posted: true,
+          created_by: createdBy
+        })
+        .select('id')
+        .single();
+
+      if (journalError) throw journalError;
+
+      // Insert journal lines
+      await supabase.from('journal_lines').insert(
+        journalLines.map(line => ({
+          ...line,
+          journal_entry_id: journalEntry.id
+        }))
+      );
+
+      // Create payment record for the refund
+      const paymentNumber = `PAY-${Date.now().toString().slice(-6)}`;
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          payment_number: paymentNumber,
+          payment_type: 'refund',
+          reference_type: 'sales_return',
+          reference_id: journalEntry.id,
+          customer_id: selectedInvoice.customer_id,
+          amount: totalRefundAmount,
+          payment_method: refundMethod === 'store_credit' ? 'store_credit' : refundMethod,
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: `Refund for sales return ${returnNumber}`
+        })
+        .select('id')
+        .maybeSingle();
+
+      // Create sales_return record
+      const { data: salesReturn, error: returnError } = await supabase
+        .from('sales_returns')
+        .insert({
+          return_number: returnNumber,
+          invoice_id: selectedInvoice.id,
+          customer_id: selectedInvoice.customer_id,
+          return_date: new Date().toISOString().split('T')[0],
+          total_refund_amount: totalRefundAmount,
+          refund_method: refundMethod,
+          status: 'completed',
+          journal_entry_id: journalEntry.id,
+          payment_id: payment?.id,
+          created_by: createdBy
+        })
+        .select('id')
+        .single();
+
+      if (returnError) throw returnError;
+
+      // Create sales_return_items
       for (const [itemId, { qty, reason }] of itemsToReturn) {
         const item = items.find(i => i.id === itemId);
         if (!item) continue;
 
-        const refundAmount = qty * item.unit_price;
-        totalRefund += refundAmount;
+        await supabase.from('sales_return_items').insert({
+          sales_return_id: salesReturn.id,
+          invoice_item_id: itemId,
+          product_id: item.product_id,
+          quantity_returned: qty,
+          unit_price: item.unit_price,
+          cost_price: item.cost_price || 0,
+          subtotal: qty * item.unit_price,
+          reason: reason || 'Not specified'
+        });
 
         // Create stock movement for return
         await supabase.from('stock_movements').insert({
@@ -347,9 +511,9 @@ function ReturnModal({ invoices, onClose, onSaved }: {
           warehouse_id: warehouseId,
           movement_type: 'return_in',
           quantity: qty,
-          unit_cost: item.unit_price,
+          unit_cost: item.cost_price || item.unit_price,
           reference_type: 'sales_return',
-          reference_id: returnId,
+          reference_id: salesReturn.id,
           reference_number: returnNumber,
           notes: reason || `Return from invoice ${selectedInvoice.invoice_number}`,
         });
@@ -377,26 +541,64 @@ function ReturnModal({ invoices, onClose, onSaved }: {
         }
       }
 
-      // Update invoice amount_paid if refund
-      const newAmountPaid = Math.max(0, selectedInvoice.amount_paid - totalRefund);
-      const newStatus = newAmountPaid >= selectedInvoice.total_amount ? 'paid' :
+      // Update invoice amount_paid
+      const newAmountPaid = Math.max(0, selectedInvoice.amount_paid - totalRefundAmount);
+      const newBalanceDue = selectedInvoice.total_amount - newAmountPaid;
+      const newStatus = newBalanceDue <= 0 ? 'paid' :
                         newAmountPaid > 0 ? 'partially_paid' : 'sent';
 
       await supabase.from('invoices').update({
         amount_paid: newAmountPaid,
+        balance_due: newBalanceDue,
         status: newStatus,
         updated_at: new Date().toISOString(),
       }).eq('id', selectedInvoice.id);
 
-      toast({ title: 'Success', description: `Return processed. Refund: ${formatCurrency(totalRefund)}` });
-      onSaved();
-      onClose();
+      // Update customer outstanding balance for store credit
+      if (refundMethod === 'store_credit' && selectedInvoice.customer_id) {
+        const { data: currentCustomer } = await supabase
+          .from('customers')
+          .select('outstanding_balance')
+          .eq('id', selectedInvoice.customer_id)
+          .maybeSingle();
+
+        if (currentCustomer) {
+          // Store credit increases what the customer is owed (negative balance or credit)
+          await supabase
+            .from('customers')
+            .update({
+              outstanding_balance: (currentCustomer.outstanding_balance || 0) - totalRefundAmount,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', selectedInvoice.customer_id);
+        }
+      }
+
+      setCreatedJournalId(journalEntry.id);
+      toast({
+        title: 'Return Processed Successfully',
+        description: `Return ${returnNumber} created. Refund: ${formatCurrency(totalRefundAmount)}`
+      });
+
+      // Show success state briefly before closing
+      setTimeout(() => {
+        onSaved();
+        onClose();
+      }, 1500);
+
     } catch (err: any) {
-      setError(err.message);
+      console.error('Return processing error:', err);
+      setError(err.message || 'Failed to process return');
     } finally {
       setSaving(false);
     }
   }
+
+  const refundMethodIcons = {
+    cash: <Banknote className="w-4 h-4" />,
+    bank_transfer: <Building2 className="w-4 h-4" />,
+    store_credit: <Wallet className="w-4 h-4" />
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -465,7 +667,12 @@ function ReturnModal({ invoices, onClose, onSaved }: {
                           <p className="font-medium text-foreground text-sm">{item.product?.name}</p>
                           <p className="text-xs text-muted-foreground">SKU: {item.product?.sku} | Unit: {item.product?.unit}</p>
                         </div>
-                        <p className="font-semibold">{formatCurrency(item.unit_price)}/unit</p>
+                        <div className="text-right">
+                          <p className="font-semibold">{formatCurrency(item.unit_price)}/unit</p>
+                          {item.cost_price > 0 && (
+                            <p className="text-xs text-muted-foreground">Cost: {formatCurrency(item.cost_price)}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
@@ -506,19 +713,73 @@ function ReturnModal({ invoices, onClose, onSaved }: {
                 </div>
               </div>
 
+              {/* Refund Method Selection */}
+              <div className="border-t border-border pt-4">
+                <h4 className="text-sm font-medium mb-3">Refund Method:</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['store_credit', 'cash', 'bank_transfer'] as const).map(method => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={() => setRefundMethod(method)}
+                      className={`flex items-center justify-center gap-2 p-3 rounded-lg border transition ${
+                        refundMethod === method
+                          ? 'border-blue-500 bg-blue-50 text-blue-700'
+                          : 'border-border hover:border-blue-300'
+                      }`}
+                    >
+                      {refundMethodIcons[method]}
+                      <span className="text-sm font-medium capitalize">{method.replace('_', ' ')}</span>
+                    </button>
+                  ))}
+                </div>
+                {refundMethod === 'store_credit' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Customer will receive store credit that can be used for future purchases.
+                  </p>
+                )}
+              </div>
+
+              {/* Summary */}
+              {totalRefundAmount > 0 && (
+                <div className="border-t border-border pt-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Total Refund Amount:</span>
+                    <span className="font-bold">{formatCurrency(totalRefundAmount)}</span>
+                  </div>
+                  {totalCOGS > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">COGS Reversal:</span>
+                      <span className="text-muted-foreground">{formatCurrency(totalCOGS)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm pt-2 border-t">
+                    <span className="text-muted-foreground">Journal Entry Lines:</span>
+                    <span className="text-muted-foreground">{totalCOGS > 0 ? 4 : 2} lines</span>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-4 border-t border-border">
                 <button onClick={() => setStep(1)} className="px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition">
                   Back
                 </button>
                 <button
                   onClick={handleReturn}
-                  disabled={saving}
+                  disabled={saving || totalRefundAmount === 0}
                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition disabled:opacity-60"
                 >
-                  {saving ? 'Processing...' : <>
-                    <Package className="w-4 h-4" />
-                    Process Return
-                  </>}
+                  {saving ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="w-4 h-4" />
+                      Process Return
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -530,42 +791,109 @@ function ReturnModal({ invoices, onClose, onSaved }: {
 }
 
 function ViewReturnModal({ returnData, onClose }: {
-  returnData: SalesReturn & { items?: any[] };
+  returnData: SalesReturn;
   onClose: () => void;
 }) {
+  const [journalEntry, setJournalEntry] = useState<any>(null);
+
+  useEffect(() => {
+    if (returnData.journal_entry_id) {
+      supabase
+        .from('journal_entries')
+        .select('*, lines:journal_lines(*, account:accounts(name, code))')
+        .eq('id', returnData.journal_entry_id)
+        .single()
+        .then(({ data }) => setJournalEntry(data));
+    }
+  }, [returnData.journal_entry_id]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-white">
           <h2 className="text-base font-bold">Return Details</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-6 space-y-4">
-          <div className="p-4 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground">Return Number</p>
-            <p className="font-bold text-foreground">{returnData.return_number}</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Return Number</p>
+              <p className="font-bold text-foreground">{returnData.return_number}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <p className="font-bold text-green-600 capitalize">{returnData.status}</p>
+            </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Date</p>
+              <p className="text-foreground">{formatDate(returnData.created_at)}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Refund Method</p>
+              <p className="text-foreground capitalize">{returnData.refund_method?.replace('_', ' ')}</p>
+            </div>
+          </div>
+
           <div>
-            <p className="text-xs text-muted-foreground">Date</p>
-            <p className="text-foreground">{formatDate(returnData.created_at)}</p>
+            <p className="text-xs text-muted-foreground">Total Refund Amount</p>
+            <p className="font-bold text-foreground text-xl">{formatCurrency(returnData.total_refund_amount)}</p>
           </div>
-          <div>
-            <p className="text-xs text-muted-foreground">Total Amount</p>
-            <p className="font-bold text-foreground text-lg">{formatCurrency(returnData.total_amount)}</p>
-          </div>
+
           {returnData.items && returnData.items.length > 0 && (
             <div>
               <p className="text-xs text-muted-foreground mb-2">Returned Items</p>
               <div className="space-y-2">
-                {returnData.items.map((item: any) => (
-                  <div key={item.id} className="p-2 bg-muted/30 rounded text-sm">
-                    <p className="font-medium">{item.product?.name}</p>
-                    <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
+                {returnData.items.map((item) => (
+                  <div key={item.id} className="p-3 bg-muted/30 rounded-lg">
+                    <div className="flex justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{item.product?.name}</p>
+                        <p className="text-xs text-muted-foreground">SKU: {item.product?.sku}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{formatCurrency(item.subtotal)}</p>
+                        <p className="text-xs text-muted-foreground">Qty: {item.quantity_returned}</p>
+                      </div>
+                    </div>
+                    {item.reason && (
+                      <p className="text-xs text-muted-foreground mt-1">Reason: {item.reason}</p>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {journalEntry && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-muted-foreground">Journal Entry</p>
+                <Link
+                  href={`/accounting/journal`}
+                  className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  View in Journal <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+              <div className="p-3 bg-muted/30 rounded-lg space-y-2">
+                <p className="text-sm font-medium">{journalEntry.entry_number}</p>
+                <div className="text-xs space-y-1">
+                  {journalEntry.lines?.map((line: any) => (
+                    <div key={line.id} className="flex justify-between">
+                      <span className="text-muted-foreground">{line.account?.name}</span>
+                      <span className={Number(line.debit) > 0 ? 'text-green-600' : 'text-red-600'}>
+                        {Number(line.debit) > 0 ? `Dr. ${formatCurrency(line.debit)}` : `Cr. ${formatCurrency(line.credit)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           <button onClick={onClose} className="w-full px-4 py-2 border border-border rounded-lg text-sm hover:bg-muted transition">
             Close
           </button>
