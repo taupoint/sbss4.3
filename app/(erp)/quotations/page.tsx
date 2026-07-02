@@ -583,7 +583,7 @@ function ConvertToInvoiceModal({ quotation, onClose, onConverted }: {
 
     const { data: items } = await supabase
       .from('quotation_items')
-      .select('*')
+      .select('*, product:products(cost_price)')
       .eq('quotation_id', quotation.id);
 
     const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
@@ -614,6 +614,7 @@ function ConvertToInvoiceModal({ quotation, onClose, onConverted }: {
         product_id: item.product_id,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        cost_price: (Array.isArray(item.product) ? item.product[0]?.cost_price : item.product?.cost_price) || 0,
         discount_percent: item.discount_percent || 0,
         tax_rate: item.tax_rate || 0,
         subtotal: item.subtotal,
