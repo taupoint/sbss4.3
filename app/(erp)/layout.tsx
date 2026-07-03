@@ -88,16 +88,18 @@ export default function ERPLayout({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Mobile menu button inside header area */}
-        <div className="lg:hidden flex items-center gap-2 px-4 py-2 bg-slate-900 border-b border-slate-800">
+        {/* Mobile menu button - fixed position */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-30 flex items-center gap-2 px-4 py-3 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-white p-1 rounded"
+            className="text-white p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
           >
             <Menu className="w-5 h-5" />
           </button>
-          <span className="text-white font-semibold text-sm">SI Building ERP</span>
+          <span className="text-white font-bold text-sm tracking-tight">SI Building ERP</span>
         </div>
+        {/* Spacer for mobile fixed header */}
+        <div className="lg:hidden h-14" />
 
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
 

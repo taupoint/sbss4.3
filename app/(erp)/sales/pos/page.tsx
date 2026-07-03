@@ -314,7 +314,7 @@ export default function POSPage() {
   const [showMobileCart, setShowMobileCart] = useState(false);
 
   return (
-    <div className="flex flex-col lg:flex-row h-[calc(100vh-120px)] lg:h-[calc(100vh-120px)] gap-4 animate-fade-in">
+    <div className="flex flex-col lg:flex-row h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)] gap-4 animate-fade-in">
       {/* Mobile Cart Overlay */}
       {showMobileCart && (
         <div
@@ -434,14 +434,13 @@ export default function POSPage() {
           <div className="w-10 h-1 bg-slate-200 rounded-full" />
         </div>
 
-        {/* Mobile header with close button */}
         <div className="px-4 py-3 border-b border-border flex items-center justify-between">
           <h2 className="font-bold text-foreground flex items-center gap-2">
             <ShoppingCart className="w-4 h-4" />Cart ({cart.length})
           </h2>
           <div className="flex items-center gap-2">
             {cart.length > 0 && (
-              <button onClick={() => setCart([])} className="text-xs text-red-500 hover:underline hidden sm:block">Clear</button>
+              <button onClick={() => setCart([])} className="text-xs text-red-500 hover:underline">Clear</button>
             )}
             <button
               onClick={() => setShowMobileCart(false)}
@@ -450,10 +449,6 @@ export default function POSPage() {
               <X className="w-5 h-5" />
             </button>
           </div>
-        </div>
-        <div className="px-4 py-3 border-b border-border flex items-center justify-between">
-          <h2 className="font-bold text-foreground flex items-center gap-2"><ShoppingCart className="w-4 h-4" />Cart ({cart.length})</h2>
-          {cart.length > 0 && <button onClick={() => setCart([])} className="text-xs text-red-500 hover:underline">Clear</button>}
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 space-y-2">

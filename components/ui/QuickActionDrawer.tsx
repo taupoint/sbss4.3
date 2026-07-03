@@ -19,8 +19,8 @@ import {
   Wallet,
   Settings,
   X,
-  Plus,
   Zap,
+  ChevronLeft,
   ArrowRightLeft,
   ClipboardList,
   Warehouse,
@@ -145,40 +145,47 @@ export default function QuickActionDrawer() {
         />
       )}
 
-      {/* Floating Trigger Button */}
+      {/* Slim Side Tab Trigger */}
       <button
         ref={triggerRef}
         onClick={() => setIsOpen(!isOpen)}
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
         className={`
-          fixed z-[70]
-          ${isMobile ? 'bottom-20 right-4' : 'right-6 top-1/2 -translate-y-1/2'}
-          w-12 h-12 rounded-full
-          bg-gradient-to-br from-blue-600 to-indigo-600
-          hover:from-blue-500 hover:to-indigo-500
-          shadow-lg shadow-blue-500/25
-          hover:shadow-xl hover:shadow-blue-500/30
+          fixed z-[70] transition-all duration-300
+          ${isMobile
+            ? 'bottom-20 right-0'
+            : 'right-0 top-1/2 -translate-y-1/2'
+          }
+          ${isOpen
+            ? 'w-12 h-12 rounded-full bg-slate-800 mr-3'
+            : isMobile
+              ? 'w-8 h-20 rounded-l-xl'
+              : 'w-2 hover:w-8 h-32 rounded-l-xl'
+          }
+          bg-gradient-to-l from-blue-600 to-blue-700
+          hover:from-blue-500 hover:to-blue-600
+          shadow-lg shadow-blue-500/20
           flex items-center justify-center
-          transition-all duration-300
           group
-          ${isOpen ? 'rotate-45 scale-110' : 'hover:scale-105'}
         `}
         aria-label="Quick Actions"
       >
-        <Plus className={`w-6 h-6 text-white transition-transform duration-300 ${isOpen ? 'rotate-0' : 'group-hover:rotate-90'}`} />
-
-        {/* Pulse ring animation */}
-        {!isOpen && (
-          <span className="absolute inset-0 rounded-full border-2 border-blue-400 animate-ping opacity-50" />
+        {isOpen ? (
+          <X className="w-5 h-5 text-white" />
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            {/* Vertical text indicator */}
+            <div className="flex flex-col items-center gap-1 py-2">
+              <Zap className={`w-3.5 h-3.5 text-white ${isMobile ? '' : 'opacity-80 group-hover:opacity-100'}`} />
+              <ChevronLeft className={`w-4 h-4 text-white ${isMobile ? '' : 'opacity-60 group-hover:opacity-100'}`} />
+            </div>
+          </div>
         )}
 
-        {/* Tooltip for desktop */}
-        {!isMobile && !isOpen && (
-          <span className="absolute right-full mr-3 whitespace-nowrap px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-medium shadow-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-            Quick Actions
-            <span className="absolute left-full top-1/2 -translate-y-1/2 border-4 border-transparent border-l-slate-900" />
-          </span>
+        {/* Subtle glow */}
+        {!isOpen && !isMobile && (
+          <span className="absolute inset-0 rounded-l-xl bg-blue-400/20 animate-pulse" />
         )}
       </button>
 

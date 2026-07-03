@@ -168,7 +168,7 @@ export default function Sidebar({ collapsed }: SidebarProps) {
                 )}
                 {/* Collapsed submenu popup */}
                 {collapsed && (
-                  <div className="absolute left-full top-0 hidden group-hover:block z-50 ml-1 bg-slate-800 rounded-lg shadow-xl py-1 min-w-[160px]">
+                  <div className="absolute left-full top-0 invisible group-hover:visible z-50 bg-slate-800 rounded-lg shadow-xl py-1 min-w-[160px] ml-0">
                     <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase border-b border-slate-700">{item.title}</div>
                     {item.children.map((child) => (
                       <Link
