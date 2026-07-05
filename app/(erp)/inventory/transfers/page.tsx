@@ -44,15 +44,42 @@ export default function StockTransfersPage() {
 
   async function loadData() {
     setLoading(true);
-    const [prodRes, whRes, invRes] = await Promise.all([
-      supabase.from('products').select('*').eq('is_active', true).order('name'),
-      supabase.from('warehouses').select('*').eq('is_active', true).order('name'),
-      supabase.from('inventory_items').select('*, product:products(name, sku, unit), warehouse:warehouses(name, code)'),
-    ]);
 
-    setProducts(prodRes.data || []);
+    // Supabase caps queries at 1000 rows by default. Paginate to fetch all products and inventory.
+    let allProds: any[] = [];
+    let page = 0;
+    const PAGE = 500;
+    while (true) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('name')
+        .range(page * PAGE, (page + 1) * PAGE - 1);
+      if (error) break;
+      allProds = allProds.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      page++;
+    }
+
+    let allInv: any[] = [];
+    page = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('inventory_items')
+        .select('*, product:products(name, sku, unit), warehouse:warehouses(name, code)')
+        .range(page * PAGE, (page + 1) * PAGE - 1);
+      if (error) break;
+      allInv = allInv.concat(data || []);
+      if (!data || data.length < PAGE) break;
+      page++;
+    }
+
+    const whRes = await supabase.from('warehouses').select('*').eq('is_active', true).order('name');
+
+    setProducts(allProds || []);
     setWarehouses(whRes.data || []);
-    setInventory(invRes.data || []);
+    setInventory(allInv || []);
 
     // Get recent transfers from stock_movements
     const { data: movements } = await supabase

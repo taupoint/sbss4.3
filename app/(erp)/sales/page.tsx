@@ -587,6 +587,12 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
     const baseQty = defaultUnit ? convertToBaseUnit(1, defaultUnit) : 1;
     const stock = product.inventory_items?.reduce((s: number, i: any) => s + Number(i.quantity_on_hand), 0) ?? null;
 
+    // Stock validation - prevent adding out of stock items
+    if (stock !== null && stock <= 0) {
+      toast({ title: 'Out of stock', description: `${product.name} is not available`, variant: 'destructive' });
+      return;
+    }
+
     // If same product+unit already in list, increment qty instead
     const existingIndex = items.findIndex(
       i => i.product_id === product.id && (i.selected_unit?.id ?? '') === (defaultUnit?.id ?? '')
@@ -596,6 +602,11 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
       const ex = updated[existingIndex];
       const newQty = ex.quantity + 1;
       const newBase = ex.selected_unit ? convertToBaseUnit(newQty, ex.selected_unit) : newQty;
+      // Check stock limit
+      if (ex.stock_qty !== null && newBase > ex.stock_qty) {
+        toast({ title: 'Stock limit', description: `Only ${ex.stock_qty} ${ex.product_base_unit || 'units'} available`, variant: 'destructive' });
+        return;
+      }
       updated[existingIndex] = { ...ex, quantity: newQty, base_quantity: newBase };
       setItems(updated);
       return;
@@ -622,16 +633,30 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
     const updated = [...items];
     if (field === 'selected_unit') {
       const unit = value as ProductUnit;
+      const newBaseQty = convertToBaseUnit(updated[index].quantity, unit);
+      const stockQty = updated[index].stock_qty;
+      // Check stock limit when changing unit
+      if (stockQty !== null && newBaseQty > stockQty) {
+        toast({ title: 'Stock limit', description: `Only ${stockQty} ${updated[index].product_base_unit || 'units'} available`, variant: 'destructive' });
+        return;
+      }
       updated[index] = {
         ...updated[index],
         selected_unit: unit,
         unit_price: unit.price,
-        base_quantity: convertToBaseUnit(updated[index].quantity, unit),
+        base_quantity: newBaseQty,
       };
     } else if (field === 'quantity') {
       const qty = parseInt(value) || 1;
       const unit = updated[index].selected_unit;
-      updated[index] = { ...updated[index], quantity: qty, base_quantity: unit ? convertToBaseUnit(qty, unit) : qty };
+      const newBaseQty = unit ? convertToBaseUnit(qty, unit) : qty;
+      const stockQty = updated[index].stock_qty;
+      // Check stock limit when changing quantity
+      if (stockQty !== null && newBaseQty > stockQty) {
+        toast({ title: 'Stock limit', description: `Only ${stockQty} ${updated[index].product_base_unit || 'units'} available`, variant: 'destructive' });
+        return;
+      }
+      updated[index] = { ...updated[index], quantity: qty, base_quantity: newBaseQty };
     } else if (field === 'discount_percent') {
       updated[index] = { ...updated[index], discount_percent: Math.min(100, Math.max(0, parseFloat(value) || 0)) };
     } else {
@@ -664,6 +689,14 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
     if (items.length === 0) { setError('Please add at least one item'); return; }
     if (form.payment_type === 'partial' && form.amount_paid <= 0) { setError('Please enter payment amount for partial payment'); return; }
     if (form.payment_type === 'partial' && form.amount_paid >= subtotal) { setError('Partial payment must be less than total. Use "Full Payment" instead.'); return; }
+
+    // Final stock validation before saving
+    for (const item of items) {
+      if (item.stock_qty !== null && item.base_quantity > item.stock_qty) {
+        setError(`Insufficient stock for ${item.product_name}. Available: ${item.stock_qty} ${item.product_base_unit || 'units'}, Requested: ${item.base_quantity}`);
+        return;
+      }
+    }
 
     setSaving(true);
     setError('');
@@ -819,8 +852,9 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
                           <p className="text-sm font-medium text-foreground">{item.product_name}</p>
                           <p className="text-[10px] text-muted-foreground">{item.product_sku}</p>
                           {item.stock_qty !== null && (
-                            <p className={`text-[10px] font-medium ${item.stock_qty > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                              {item.stock_qty > 0 ? `${item.stock_qty} ${item.product_unit || 'units'} in stock` : 'Out of stock'}
+                            <p className={`text-[10px] font-medium ${item.stock_qty > 0 ? (item.base_quantity > item.stock_qty ? 'text-red-500' : 'text-green-600') : 'text-red-500'}`}>
+                              {item.stock_qty > 0 ? `${item.stock_qty} ${item.product_base_unit || 'units'} in stock` : 'Out of stock'}
+                              {item.base_quantity > item.stock_qty && item.stock_qty > 0 && ' (over limit!)'}
                             </p>
                           )}
                           {item.available_units && item.selected_unit && (

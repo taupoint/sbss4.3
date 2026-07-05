@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Search, Eye, Send, X, Trash2, FileText, ArrowRight, UserPlus, CreditCard, DollarSign, CircleCheck as CheckCircle, Printer, Share2, MessageCircle, Mail, Filter, ChevronDown } from 'lucide-react';
-import type { Quotation, QuotationStatus, Customer, Product } from '@/lib/types';
+import { Plus, Search, Eye, Send, X, Trash2, FileText, ArrowRight, UserPlus, CreditCard, DollarSign, CircleCheck as CheckCircle, Printer, Share2, MessageCircle, Mail, Filter, ChevronDown, TriangleAlert as AlertTriangle } from 'lucide-react';
+import type { Quotation, QuotationStatus, Customer, Product, ProductUnit } from '@/lib/types';
+import { isMultiUnitEnabled, getDefaultSaleUnit, convertToBaseUnit } from '@/lib/unit-utils';
 import ProductSearchInput from '@/components/ui/ProductSearchInput';
 import ProductFilterDropdown from '@/components/ui/ProductFilterDropdown';
 import PrintTemplate from '@/components/PrintTemplate';
@@ -50,7 +51,7 @@ export default function QuotationsPage() {
     const [quoteRes, custRes, prodRes, settingsRes] = await Promise.all([
       supabase.from('quotations').select('*, customer:customers(name, code, phone, email, address)').order('created_at', { ascending: false }),
       supabase.from('customers').select('*').eq('is_active', true).order('name'),
-      supabase.from('products').select('*').eq('is_active', true).order('name'),
+      supabase.from('products').select(`*, units:product_units(id, product_id, unit_name, unit_short, conversion_factor, is_base_unit, is_sale_unit, price, cost_price, is_active, sort_order), inventory_items(quantity_on_hand)`).eq('is_active', true).order('name'),
       supabase.from('app_settings').select('setting_value').eq('setting_key', 'company').maybeSingle(),
     ]);
     setQuotations(quoteRes.data || []);
@@ -429,38 +430,78 @@ function CreateQuotationModal({ customers: initialCustomers, products, onClose, 
     product_id: string;
     product_name: string;
     product_sku: string;
+    product_unit?: string;
+    product_base_unit?: string;
+    stock_qty: number | null;
     quantity: number;
     unit_price: number;
     discount_percent: number;
+    selected_unit?: ProductUnit;
+    available_units?: ProductUnit[];
+    base_quantity: number;
   }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
 
   function addProductToItems(product: any) {
-    const existingIndex = items.findIndex(i => i.product_id === product.id);
+    const multiUnit = product.enable_multi_unit && product.units && product.units.filter((u: any) => u.is_active).length > 0;
+    const defaultUnit: ProductUnit | undefined = multiUnit ? getDefaultSaleUnit(product) : undefined;
+    const unitPrice = defaultUnit ? defaultUnit.price : (product.sale_price || 0);
+    const baseQty = defaultUnit ? convertToBaseUnit(1, defaultUnit) : 1;
+    const stock = product.inventory_items?.reduce((s: number, i: any) => s + Number(i.quantity_on_hand), 0) ?? null;
+
+    // Show warning for out of stock items (quotations can still proceed, just warn)
+    if (stock !== null && stock <= 0) {
+      toast({ title: 'Warning', description: `${product.name} is currently out of stock`, variant: 'destructive' });
+    }
+
+    const existingIndex = items.findIndex(i => i.product_id === product.id && (i.selected_unit?.id ?? '') === (defaultUnit?.id ?? ''));
     if (existingIndex >= 0) {
       const updated = [...items];
-      updated[existingIndex] = { ...updated[existingIndex], quantity: updated[existingIndex].quantity + 1 };
+      const ex = updated[existingIndex];
+      const newQty = ex.quantity + 1;
+      const newBase = ex.selected_unit ? convertToBaseUnit(newQty, ex.selected_unit) : newQty;
+      updated[existingIndex] = { ...ex, quantity: newQty, base_quantity: newBase };
       setItems(updated);
       return;
     }
+
     setItems(prev => [...prev, {
       product_id: product.id,
       product_name: product.name,
       product_sku: product.sku,
+      product_unit: product.unit,
+      product_base_unit: product.base_unit,
+      stock_qty: stock,
       quantity: 1,
-      unit_price: product.sale_price || 0,
+      unit_price: unitPrice,
       discount_percent: 0,
+      selected_unit: defaultUnit,
+      available_units: multiUnit ? product.units.filter((u: any) => u.is_active) : undefined,
+      base_quantity: baseQty,
     }]);
   }
 
   function updateItem(index: number, field: string, value: any) {
     const updated = [...items];
-    (updated[index] as any)[field] = field === 'quantity' ? (parseInt(value) || 1)
-      : field === 'unit_price' ? (parseFloat(value) || 0)
-      : field === 'discount_percent' ? Math.min(100, Math.max(0, parseFloat(value) || 0))
-      : value;
+    if (field === 'selected_unit') {
+      const unit = value as ProductUnit;
+      updated[index] = {
+        ...updated[index],
+        selected_unit: unit,
+        unit_price: unit.price,
+        base_quantity: convertToBaseUnit(updated[index].quantity, unit),
+      };
+    } else if (field === 'quantity') {
+      const qty = parseInt(value) || 1;
+      const unit = updated[index].selected_unit;
+      updated[index] = { ...updated[index], quantity: qty, base_quantity: unit ? convertToBaseUnit(qty, unit) : qty };
+    } else if (field === 'discount_percent') {
+      updated[index] = { ...updated[index], discount_percent: Math.min(100, Math.max(0, parseFloat(value) || 0)) };
+    } else {
+      (updated[index] as any)[field] = value;
+    }
     setItems(updated);
   }
 
@@ -511,6 +552,9 @@ function CreateQuotationModal({ customers: initialCustomers, products, onClose, 
         discount_percent: item.discount_percent,
         tax_rate: 0,
         subtotal: item.quantity * item.unit_price - discount,
+        unit_name: item.selected_unit?.unit_name,
+        unit_conversion_factor: item.selected_unit?.conversion_factor,
+        base_quantity: item.base_quantity,
       };
     });
 
@@ -586,27 +630,56 @@ function CreateQuotationModal({ customers: initialCustomers, products, onClose, 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {items.map((item, index) => (
-                      <tr key={index}>
-                        <td className="px-3 py-2">
-                          <p className="text-sm font-medium text-foreground">{item.product_name}</p>
-                          <p className="text-[10px] text-muted-foreground">{item.product_sku}</p>
-                        </td>
-                        <td className="px-3 py-2">
-                          <input type="number" min="1" value={item.quantity} onChange={e => updateItem(index, 'quantity', e.target.value)} className="w-full border border-border rounded px-2 py-1 text-sm text-right focus:outline-none" />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input type="number" min="0" step="0.01" value={item.unit_price} onChange={e => updateItem(index, 'unit_price', e.target.value)} className="w-full border border-border rounded px-2 py-1 text-sm text-right focus:outline-none" />
-                        </td>
-                        <td className="px-3 py-2">
-                          <input type="number" min="0" max="100" value={item.discount_percent} onChange={e => updateItem(index, 'discount_percent', e.target.value)} className="w-full border border-border rounded px-2 py-1 text-sm text-right focus:outline-none" />
-                        </td>
-                        <td className="px-3 py-2 text-right text-sm font-semibold">{formatCurrency(item.quantity * item.unit_price * (1 - item.discount_percent / 100))}</td>
-                        <td className="px-2 py-2">
-                          <button type="button" onClick={() => removeItem(index)} className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
-                        </td>
-                      </tr>
-                    ))}
+                    {items.map((item, index) => {
+                      const isOverStock = item.stock_qty !== null && item.base_quantity > item.stock_qty;
+                      return (
+                        <tr key={index} className={isOverStock ? 'bg-red-50/50' : ''}>
+                          <td className="px-3 py-2">
+                            <p className="text-sm font-medium text-foreground">{item.product_name}</p>
+                            <p className="text-[10px] text-muted-foreground">{item.product_sku}</p>
+                            {item.stock_qty !== null && (
+                              <p className={`text-[10px] font-medium ${item.stock_qty > 0 ? (isOverStock ? 'text-red-500' : 'text-green-600') : 'text-red-500'}`}>
+                                {item.stock_qty > 0 ? `${item.stock_qty} ${item.product_base_unit || 'units'} in stock` : 'Out of stock'}
+                                {isOverStock && <span className="ml-1"><AlertTriangle className="w-3 h-3 inline" /></span>}
+                              </p>
+                            )}
+                            {item.available_units && item.selected_unit && (
+                              <div className="mt-1">
+                                <select
+                                  value={item.selected_unit.id}
+                                  onChange={e => {
+                                    const unit = item.available_units?.find(u => u.id === e.target.value);
+                                    if (unit) updateItem(index, 'selected_unit', unit);
+                                  }}
+                                  className="w-full border border-blue-200 bg-blue-50 text-blue-700 rounded px-2 py-1 text-xs focus:outline-none"
+                                >
+                                  {item.available_units.map(u => (
+                                    <option key={u.id} value={u.id}>{u.unit_name} - {formatCurrency(u.price)}</option>
+                                  ))}
+                                </select>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">1 {item.selected_unit.unit_name} = {item.selected_unit.conversion_factor} {item.product_base_unit || 'base'}</p>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="1" value={item.quantity} onChange={e => updateItem(index, 'quantity', e.target.value)} className={`w-full border rounded px-2 py-1 text-sm text-right focus:outline-none ${isOverStock ? 'border-red-300 bg-red-50' : 'border-border'}`} />
+                            {item.available_units && item.selected_unit && (
+                              <p className="text-[10px] text-muted-foreground text-center mt-0.5">= {item.base_quantity} {item.product_base_unit || 'base'}</p>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" step="0.01" value={item.unit_price} onChange={e => updateItem(index, 'unit_price', e.target.value)} className="w-full border border-border rounded px-2 py-1 text-sm text-right focus:outline-none" />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input type="number" min="0" max="100" value={item.discount_percent} onChange={e => updateItem(index, 'discount_percent', e.target.value)} className="w-full border border-border rounded px-2 py-1 text-sm text-right focus:outline-none" />
+                          </td>
+                          <td className="px-3 py-2 text-right text-sm font-semibold">{formatCurrency(item.quantity * item.unit_price * (1 - item.discount_percent / 100))}</td>
+                          <td className="px-2 py-2">
+                            <button type="button" onClick={() => removeItem(index)} className="text-red-500 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -692,10 +765,31 @@ function ConvertToInvoiceModal({ quotation, onClose, onConverted }: {
     setSaving(true);
     setError('');
 
+    // Fetch quotation items with product info and stock
     const { data: items } = await supabase
       .from('quotation_items')
-      .select('*, product:products(cost_price)')
+      .select('*, product:products(cost_price, name)')
       .eq('quotation_id', quotation.id);
+
+    // Validate stock before conversion
+    const stockChecks = await Promise.all(
+      (items || []).map(async (item: any) => {
+        const { data: invItems } = await supabase
+          .from('inventory_items')
+          .select('quantity_on_hand')
+          .eq('product_id', item.product_id);
+        const totalStock = (invItems || []).reduce((s: number, i: any) => s + Number(i.quantity_on_hand), 0);
+        const baseQty = (item as any).base_quantity || item.quantity;
+        return { item, totalStock, baseQty, productName: Array.isArray(item.product) ? item.product[0]?.name : item.product?.name };
+      })
+    );
+
+    const insufficientItems = stockChecks.filter(s => s.baseQty > s.totalStock);
+    if (insufficientItems.length > 0) {
+      setError(`Insufficient stock for: ${insufficientItems.map(s => `${s.productName} (need ${s.baseQty}, have ${s.totalStock})`).join(', ')}`);
+      setSaving(false);
+      return;
+    }
 
     const invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
 
