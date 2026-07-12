@@ -1,11 +1,15 @@
-export function formatCurrency(amount: number, symbol = '৳'): string {
-  if (amount >= 10000000) {
-    return `${symbol}${(amount / 10000000).toFixed(2)}Cr`;
+export function formatCurrency(amount: number | null | undefined, symbol = '৳'): string {
+  if (amount === null || amount === undefined || isNaN(Number(amount))) {
+    return `${symbol}0`;
   }
-  if (amount >= 100000) {
-    return `${symbol}${(amount / 100000).toFixed(2)}L`;
+  const num = Number(amount);
+  if (num >= 10000000) {
+    return `${symbol}${(num / 10000000).toFixed(2)}Cr`;
   }
-  return `${symbol}${amount.toLocaleString('en-IN')}`;
+  if (num >= 100000) {
+    return `${symbol}${(num / 100000).toFixed(2)}L`;
+  }
+  return `${symbol}${num.toLocaleString('en-IN')}`;
 }
 
 export function formatDate(dateStr: string): string {

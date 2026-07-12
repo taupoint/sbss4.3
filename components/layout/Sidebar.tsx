@@ -92,6 +92,7 @@ const navItems: NavItem[] = [
       { title: 'Inventory Report', href: '/reports/inventory' },
       { title: 'P&L Statement', href: '/reports/pl' },
       { title: 'Edit History', href: '/reports/edit-history' },
+      { title: 'Recent Activity', href: '/reports/activity' },
     ],
   },
   { title: 'Settings', href: '/settings', icon: Settings },

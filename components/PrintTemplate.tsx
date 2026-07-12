@@ -187,10 +187,10 @@ export default function PrintTemplate({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '14px 24px',
+            padding: '8px 20px',
             borderBottom: `3px solid ${PRIMARY}`,
             background: '#fff',
-            gap: '16px',
+            gap: '14px',
           }}
         >
           {/* Left: Logo image */}
@@ -199,9 +199,9 @@ export default function PrintTemplate({
               src={logoSrc}
               alt="SI Building Solutions"
               style={{
-                height: '96px',
+                height: '72px',
                 width: 'auto',
-                maxWidth: '380px',
+                maxWidth: '320px',
                 objectFit: 'contain',
                 display: 'block',
               }}
@@ -230,7 +230,7 @@ export default function PrintTemplate({
           >
             <div
               style={{
-                fontSize: '36px',
+                fontSize: '30px',
                 fontWeight: '900',
                 color: PRIMARY,
                 letterSpacing: '2px',
@@ -245,10 +245,10 @@ export default function PrintTemplate({
                 style={{
                   background: badge.bg,
                   color: badge.color,
-                  padding: '8px 18px',
+                  padding: '6px 14px',
                   borderRadius: '6px',
                   fontWeight: '700',
-                  fontSize: '15px',
+                  fontSize: '13px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '7px',
@@ -282,19 +282,19 @@ export default function PrintTemplate({
           }}
         >
           {/* Bill To */}
-          <div style={{ padding: '16px 20px', borderRight: '1px solid #dde3ef' }}>
+          <div style={{ padding: '8px 16px', borderRight: '1px solid #dde3ef' }}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '7px',
-                marginBottom: '12px',
+                gap: '6px',
+                marginBottom: '6px',
               }}
             >
               <div
                 style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '22px',
+                  height: '22px',
                   background: PRIMARY,
                   borderRadius: '50%',
                   display: 'flex',
@@ -303,42 +303,42 @@ export default function PrintTemplate({
                   flexShrink: 0,
                 }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
                   <circle cx="12" cy="7" r="4" stroke="#fff" strokeWidth="2" />
                 </svg>
               </div>
-              <span style={{ fontWeight: '800', fontSize: '12px', color: PRIMARY, letterSpacing: '1.5px' }}>
+              <span style={{ fontWeight: '800', fontSize: '11px', color: PRIMARY, letterSpacing: '1.5px' }}>
                 BILL TO
               </span>
             </div>
 
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <tbody>
                 <tr>
-                  <td style={{ color: '#666', paddingBottom: '5px', whiteSpace: 'nowrap', paddingRight: '6px' }}>Customer Name</td>
-                  <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '4px' }}>:</td>
-                  <td style={{ fontWeight: '700', paddingBottom: '5px' }}>{customer.name}</td>
+                  <td style={{ color: '#666', paddingBottom: '2px', whiteSpace: 'nowrap', paddingRight: '6px' }}>Customer Name</td>
+                  <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '4px' }}>:</td>
+                  <td style={{ fontWeight: '700', paddingBottom: '2px' }}>{customer.name}</td>
                 </tr>
                 {customer.code && (
                   <tr>
-                    <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '6px' }}>Customer ID</td>
-                    <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '4px' }}>:</td>
-                    <td style={{ fontWeight: '700', paddingBottom: '5px' }}>{customer.code}</td>
+                    <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '6px' }}>Customer ID</td>
+                    <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '4px' }}>:</td>
+                    <td style={{ fontWeight: '700', paddingBottom: '2px' }}>{customer.code}</td>
                   </tr>
                 )}
                 {customer.phone && (
                   <tr>
-                    <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '6px' }}>Phone</td>
-                    <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '4px' }}>:</td>
-                    <td style={{ fontWeight: '700', paddingBottom: '5px' }}>{customer.phone}</td>
+                    <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '6px' }}>Phone</td>
+                    <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '4px' }}>:</td>
+                    <td style={{ fontWeight: '700', paddingBottom: '2px' }}>{customer.phone}</td>
                   </tr>
                 )}
                 {customer.address && (
                   <tr>
-                    <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '6px', verticalAlign: 'top' }}>Address</td>
-                    <td style={{ color: '#666', paddingBottom: '5px', paddingRight: '4px', verticalAlign: 'top' }}>:</td>
-                    <td style={{ fontWeight: '700', paddingBottom: '5px' }}>{customer.address}</td>
+                    <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '6px', verticalAlign: 'top' }}>Address</td>
+                    <td style={{ color: '#666', paddingBottom: '2px', paddingRight: '4px', verticalAlign: 'top' }}>:</td>
+                    <td style={{ fontWeight: '700', paddingBottom: '2px' }}>{customer.address}</td>
                   </tr>
                 )}
               </tbody>
@@ -346,12 +346,12 @@ export default function PrintTemplate({
           </div>
 
           {/* Company Info */}
-          <div style={{ padding: '16px 20px', borderRight: '1px solid #dde3ef' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginBottom: '10px' }}>
+          <div style={{ padding: '8px 16px', borderRight: '1px solid #dde3ef' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
               <div
                 style={{
-                  width: '26px',
-                  height: '26px',
+                  width: '22px',
+                  height: '22px',
                   background: PRIMARY,
                   borderRadius: '50%',
                   display: 'flex',
@@ -360,25 +360,25 @@ export default function PrintTemplate({
                   flexShrink: 0,
                 }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" stroke="#fff" strokeWidth="2" />
                   <circle cx="12" cy="10" r="3" stroke="#fff" strokeWidth="2" />
                 </svg>
               </div>
-              <span style={{ fontWeight: '800', fontSize: '12px', color: PRIMARY, letterSpacing: '1px' }}>
+              <span style={{ fontWeight: '800', fontSize: '11px', color: PRIMARY, letterSpacing: '1px' }}>
                 {company.name.toUpperCase()}
               </span>
             </div>
 
             {company.address && (
-              <div style={{ fontSize: '12px', color: '#444', lineHeight: '1.6', marginBottom: '10px' }}>
+              <div style={{ fontSize: '11px', color: '#444', lineHeight: '1.5', marginBottom: '6px' }}>
                 {company.address}
               </div>
             )}
 
             {company.phone && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', marginBottom: '5px', color: '#333' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', marginBottom: '3px', color: '#333' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                   <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.37 11.5 19.79 19.79 0 0 1 1.25 2.85 2 2 0 0 1 3.22 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16z" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" />
                 </svg>
                 <span style={{ fontWeight: '600' }}>{company.phone}</span>
@@ -386,8 +386,8 @@ export default function PrintTemplate({
             )}
 
             {company.email && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '7px', fontSize: '12px', color: '#333' }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#333' }}>
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
                   <rect x="2" y="4" width="20" height="16" rx="2" stroke={PRIMARY} strokeWidth="2" />
                   <path d="M2 7l10 7 10-7" stroke={PRIMARY} strokeWidth="2" strokeLinecap="round" />
                 </svg>
@@ -397,48 +397,48 @@ export default function PrintTemplate({
           </div>
 
           {/* Invoice Details */}
-          <div style={{ padding: '16px 20px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+          <div style={{ padding: '8px 16px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <tbody>
                 <tr>
-                  <td style={{ color: '#555', paddingBottom: '7px', whiteSpace: 'nowrap' }}>
+                  <td style={{ color: '#555', paddingBottom: '3px', whiteSpace: 'nowrap' }}>
                     {isQuote ? 'Quotation No.' : 'Invoice No.'}
                   </td>
-                  <td style={{ color: '#555', paddingBottom: '7px', textAlign: 'center', width: '16px' }}>:</td>
-                  <td style={{ fontWeight: '800', color: PRIMARY, paddingBottom: '7px', textAlign: 'right' }}>
+                  <td style={{ color: '#555', paddingBottom: '3px', textAlign: 'center', width: '16px' }}>:</td>
+                  <td style={{ fontWeight: '800', color: PRIMARY, paddingBottom: '3px', textAlign: 'right' }}>
                     {docNumber}
                   </td>
                 </tr>
                 <tr>
-                  <td style={{ color: '#555', paddingBottom: '7px' }}>Invoice Date</td>
-                  <td style={{ color: '#555', paddingBottom: '7px', textAlign: 'center' }}>:</td>
-                  <td style={{ fontWeight: '600', paddingBottom: '7px', textAlign: 'right' }}>
+                  <td style={{ color: '#555', paddingBottom: '3px' }}>Invoice Date</td>
+                  <td style={{ color: '#555', paddingBottom: '3px', textAlign: 'center' }}>:</td>
+                  <td style={{ fontWeight: '600', paddingBottom: '3px', textAlign: 'right' }}>
                     {formatDate(docDate)}
                   </td>
                 </tr>
                 {effectiveDueDate && (
                   <tr>
-                    <td style={{ color: '#555', paddingBottom: '7px' }}>
+                    <td style={{ color: '#555', paddingBottom: '3px' }}>
                       {isQuote ? 'Valid Until' : 'Due Date'}
                     </td>
-                    <td style={{ color: '#555', paddingBottom: '7px', textAlign: 'center' }}>:</td>
-                    <td style={{ fontWeight: '600', paddingBottom: '7px', textAlign: 'right' }}>
+                    <td style={{ color: '#555', paddingBottom: '3px', textAlign: 'center' }}>:</td>
+                    <td style={{ fontWeight: '600', paddingBottom: '3px', textAlign: 'right' }}>
                       {formatDate(effectiveDueDate)}
                     </td>
                   </tr>
                 )}
                 <tr>
-                  <td style={{ color: '#555', paddingBottom: '7px' }}>Sales Person</td>
-                  <td style={{ color: '#555', paddingBottom: '7px', textAlign: 'center' }}>:</td>
-                  <td style={{ fontWeight: '600', paddingBottom: '7px', textAlign: 'right' }}>
+                  <td style={{ color: '#555', paddingBottom: '3px' }}>Sales Person</td>
+                  <td style={{ color: '#555', paddingBottom: '3px', textAlign: 'center' }}>:</td>
+                  <td style={{ fontWeight: '600', paddingBottom: '3px', textAlign: 'right' }}>
                     {salesPerson}
                   </td>
                 </tr>
                 {paymentMethod && (
                   <tr>
-                    <td style={{ color: '#555', paddingBottom: '7px', whiteSpace: 'nowrap' }}>Payment Method</td>
-                    <td style={{ color: '#555', paddingBottom: '7px', textAlign: 'center' }}>:</td>
-                    <td style={{ fontWeight: '600', paddingBottom: '7px', textAlign: 'right', textTransform: 'capitalize' }}>
+                    <td style={{ color: '#555', paddingBottom: '3px', whiteSpace: 'nowrap' }}>Payment Method</td>
+                    <td style={{ color: '#555', paddingBottom: '3px', textAlign: 'center' }}>:</td>
+                    <td style={{ fontWeight: '600', paddingBottom: '3px', textAlign: 'right', textTransform: 'capitalize' }}>
                       {paymentMethod}
                     </td>
                   </tr>
@@ -447,9 +447,9 @@ export default function PrintTemplate({
                   ?.filter((f) => !/sales|person|payment/i.test(f.label))
                   .map((f, i) => (
                     <tr key={i}>
-                      <td style={{ color: '#555', paddingBottom: '7px' }}>{f.label}</td>
-                      <td style={{ color: '#555', paddingBottom: '7px', textAlign: 'center' }}>:</td>
-                      <td style={{ fontWeight: '600', paddingBottom: '7px', textAlign: 'right' }}>{f.value}</td>
+                      <td style={{ color: '#555', paddingBottom: '3px' }}>{f.label}</td>
+                      <td style={{ color: '#555', paddingBottom: '3px', textAlign: 'center' }}>:</td>
+                      <td style={{ fontWeight: '600', paddingBottom: '3px', textAlign: 'right' }}>{f.value}</td>
                     </tr>
                   ))}
               </tbody>
@@ -474,9 +474,9 @@ export default function PrintTemplate({
                 <th
                   key={col.label}
                   style={{
-                    padding: '10px 9px',
+                    padding: '5px 8px',
                     textAlign: col.align,
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontWeight: '700',
                     letterSpacing: '0.4px',
                     width: col.width,
@@ -504,16 +504,16 @@ export default function PrintTemplate({
                     borderBottom: '1px solid #e8edf6',
                   }}
                 >
-                  <td style={{ padding: '9px 9px', textAlign: 'center', fontSize: '12px', color: '#555' }}>{idx + 1}</td>
-                  <td style={{ padding: '9px 9px', textAlign: 'left',   fontSize: '12px', color: '#555' }}>{item.product_sku || '—'}</td>
-                  <td style={{ padding: '9px 9px', textAlign: 'left',   fontSize: '12px', fontWeight: '500' }}>{item.product_name}</td>
-                  <td style={{ padding: '9px 9px', textAlign: 'center', fontSize: '12px', color: '#555' }}>{item.unit_name || '—'}</td>
-                  <td style={{ padding: '9px 9px', textAlign: 'center', fontSize: '12px' }}>{item.quantity}</td>
-                  <td style={{ padding: '9px 9px', textAlign: 'right',  fontSize: '12px' }}>{Number(item.unit_price).toFixed(2)}</td>
-                  <td style={{ padding: '9px 9px', textAlign: 'center', fontSize: '12px', color: '#555' }}>
+                  <td style={{ padding: '3px 8px', textAlign: 'center', fontSize: '11px', color: '#555' }}>{idx + 1}</td>
+                  <td style={{ padding: '3px 8px', textAlign: 'left',   fontSize: '11px', color: '#555' }}>{item.product_sku || '—'}</td>
+                  <td style={{ padding: '3px 8px', textAlign: 'left',   fontSize: '11px', fontWeight: '500' }}>{item.product_name}</td>
+                  <td style={{ padding: '3px 8px', textAlign: 'center', fontSize: '11px', color: '#555' }}>{item.unit_name || '—'}</td>
+                  <td style={{ padding: '3px 8px', textAlign: 'center', fontSize: '11px' }}>{item.quantity}</td>
+                  <td style={{ padding: '3px 8px', textAlign: 'right',  fontSize: '11px' }}>{Number(item.unit_price).toFixed(2)}</td>
+                  <td style={{ padding: '3px 8px', textAlign: 'center', fontSize: '11px', color: '#555' }}>
                     {(item.discount_percent || 0) > 0 ? `${item.discount_percent}%` : '—'}
                   </td>
-                  <td style={{ padding: '9px 9px', textAlign: 'right', fontSize: '12px', fontWeight: '600' }}>
+                  <td style={{ padding: '3px 8px', textAlign: 'right', fontSize: '11px', fontWeight: '600' }}>
                     {Number(item.subtotal).toFixed(2)}
                   </td>
                 </tr>
@@ -527,26 +527,26 @@ export default function PrintTemplate({
           {/* QR */}
           <div
             style={{
-              flex: '0 0 45%',
-              padding: '20px 22px',
+              flex: '0 0 40%',
+              padding: '8px 16px',
               borderRight: '1px solid #dde3ef',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
             }}
           >
-            <div style={{ fontWeight: '800', fontSize: '11px', color: PRIMARY, marginBottom: '12px', letterSpacing: '1.5px' }}>
+            <div style={{ fontWeight: '800', fontSize: '10px', color: PRIMARY, marginBottom: '6px', letterSpacing: '1.5px' }}>
               SCAN TO VERIFY
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div style={{ border: `2px solid ${PRIMARY}`, padding: '4px', display: 'inline-block', background: '#fff' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ border: `2px solid ${PRIMARY}`, padding: '3px', display: 'inline-block', background: '#fff' }}>
                 <QRPlaceholder />
               </div>
               <div>
-                <div style={{ fontSize: '12px', color: '#555', lineHeight: '1.7' }}>
+                <div style={{ fontSize: '10px', color: '#555', lineHeight: '1.5' }}>
                   Scan this QR code<br />to verify this invoice.
                 </div>
-                <div style={{ fontSize: '12px', fontWeight: '700', color: PRIMARY, marginTop: '6px' }}>
+                <div style={{ fontSize: '10px', fontWeight: '700', color: PRIMARY, marginTop: '3px' }}>
                   Invoice No: {docNumber}
                 </div>
               </div>
@@ -554,38 +554,38 @@ export default function PrintTemplate({
           </div>
 
           {/* Totals */}
-          <div style={{ flex: '0 0 55%', padding: '20px 22px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+          <div style={{ flex: '0 0 60%', padding: '8px 16px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
               <tbody>
                 <tr>
-                  <td style={{ padding: '4px 0', color: '#555' }}>Subtotal</td>
-                  <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '500' }}>{fmt(subtotal + discountTotal)}</td>
+                  <td style={{ padding: '2px 0', color: '#555' }}>Subtotal</td>
+                  <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '500' }}>{fmt(subtotal + discountTotal)}</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '4px 0', color: '#555' }}>Discount</td>
-                  <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '500' }}>{fmt(discountTotal)}</td>
+                  <td style={{ padding: '2px 0', color: '#555' }}>Discount</td>
+                  <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '500' }}>{fmt(discountTotal)}</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '4px 0', color: '#555' }}>VAT (0%)</td>
-                  <td style={{ padding: '4px 0', textAlign: 'right', fontWeight: '500' }}>৳0.00</td>
+                  <td style={{ padding: '2px 0', color: '#555' }}>VAT (0%)</td>
+                  <td style={{ padding: '2px 0', textAlign: 'right', fontWeight: '500' }}>৳0.00</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: '4px 0 10px', color: '#555' }}>Shipping</td>
-                  <td style={{ padding: '4px 0 10px', textAlign: 'right', fontWeight: '500' }}>৳0.00</td>
+                  <td style={{ padding: '2px 0 4px', color: '#555' }}>Shipping</td>
+                  <td style={{ padding: '2px 0 4px', textAlign: 'right', fontWeight: '500' }}>৳0.00</td>
                 </tr>
                 <tr style={{ borderTop: `2px solid ${PRIMARY}` }}>
-                  <td style={{ padding: '9px 0 5px', fontWeight: '800', color: PRIMARY, fontSize: '14px' }}>GRAND TOTAL</td>
-                  <td style={{ padding: '9px 0 5px', textAlign: 'right', fontWeight: '800', color: PRIMARY, fontSize: '14px' }}>{fmt(totalAmount)}</td>
+                  <td style={{ padding: '5px 0 3px', fontWeight: '800', color: PRIMARY, fontSize: '13px' }}>GRAND TOTAL</td>
+                  <td style={{ padding: '5px 0 3px', textAlign: 'right', fontWeight: '800', color: PRIMARY, fontSize: '13px' }}>{fmt(totalAmount)}</td>
                 </tr>
                 {amountPaid > 0 && (
                   <tr>
-                    <td style={{ padding: '4px 0', color: '#555' }}>Amount Paid</td>
-                    <td style={{ padding: '4px 0', textAlign: 'right', color: GREEN, fontWeight: '600' }}>-{fmt(amountPaid)}</td>
+                    <td style={{ padding: '2px 0', color: '#555' }}>Amount Paid</td>
+                    <td style={{ padding: '2px 0', textAlign: 'right', color: GREEN, fontWeight: '600' }}>-{fmt(amountPaid)}</td>
                   </tr>
                 )}
                 <tr style={{ borderTop: '1px solid #dde3ef' }}>
-                  <td style={{ padding: '9px 0 4px', fontWeight: '800', color: PRIMARY, fontSize: '15px' }}>BALANCE DUE</td>
-                  <td style={{ padding: '9px 0 4px', textAlign: 'right', fontWeight: '800', color: PRIMARY, fontSize: '15px' }}>{fmt(balanceDue)}</td>
+                  <td style={{ padding: '5px 0 2px', fontWeight: '800', color: PRIMARY, fontSize: '14px' }}>BALANCE DUE</td>
+                  <td style={{ padding: '5px 0 2px', textAlign: 'right', fontWeight: '800', color: PRIMARY, fontSize: '14px' }}>{fmt(balanceDue)}</td>
                 </tr>
               </tbody>
             </table>
@@ -602,16 +602,16 @@ export default function PrintTemplate({
           }}
         >
           {/* Terms & Conditions */}
-          <div style={{ padding: '12px 18px' }}>
+          <div style={{ padding: '8px 14px' }}>
             <div
               style={{
                 fontWeight: '800',
-                fontSize: '11px',
+                fontSize: '10px',
                 color: PRIMARY,
                 letterSpacing: '1.5px',
-                paddingBottom: '6px',
+                paddingBottom: '4px',
                 borderBottom: `2px solid ${PRIMARY}`,
-                marginBottom: '10px',
+                marginBottom: '6px',
                 display: 'inline-block',
               }}
             >
@@ -619,20 +619,20 @@ export default function PrintTemplate({
             </div>
             <ol
               style={{
-                fontSize: '11px',
+                fontSize: '10px',
                 color: '#444',
                 paddingLeft: '16px',
                 margin: 0,
-                lineHeight: '1.8',
+                lineHeight: '1.5',
                 listStyleType: 'decimal',
               }}
             >
-              <li style={{ paddingLeft: '4px', marginBottom: '2px' }}>Please check all items and quantities before leaving the store.</li>
-              <li style={{ paddingLeft: '4px', marginBottom: '2px' }}>Any discrepancy must be reported within 24 hours.</li>
+              <li style={{ paddingLeft: '4px', marginBottom: '1px' }}>Please check all items and quantities before leaving the store.</li>
+              <li style={{ paddingLeft: '4px', marginBottom: '1px' }}>Any discrepancy must be reported within 24 hours.</li>
               <li style={{ paddingLeft: '4px' }}>Payment is due as per agreed terms.</li>
             </ol>
             {notes && (
-              <div style={{ marginTop: '8px', fontSize: '11px', color: '#666' }}>
+              <div style={{ marginTop: '4px', fontSize: '10px', color: '#666' }}>
                 <strong>Notes:</strong> {notes}
               </div>
             )}
@@ -643,7 +643,7 @@ export default function PrintTemplate({
             style={{
               borderLeft: '1px solid #dde3ef',
               borderRight: '1px solid #dde3ef',
-              padding: '12px 24px',
+              padding: '8px 20px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -655,7 +655,7 @@ export default function PrintTemplate({
             <div
               style={{
                 fontFamily: '"Brush Script MT", "Segoe Script", "Dancing Script", cursive',
-                fontSize: '34px',
+                fontSize: '28px',
                 color: PRIMARY,
                 lineHeight: '1.1',
                 whiteSpace: 'nowrap',
@@ -667,17 +667,17 @@ export default function PrintTemplate({
             <div
               style={{
                 width: '80%',
-                height: '3px',
+                height: '2px',
                 background: GREEN,
                 borderRadius: '2px',
-                margin: '6px 0 8px',
+                margin: '4px 0 5px',
               }}
             />
             <div
               style={{
-                fontSize: '10px',
+                fontSize: '9px',
                 color: GREEN,
-                letterSpacing: '2.5px',
+                letterSpacing: '2px',
                 fontWeight: '700',
               }}
             >
@@ -688,7 +688,7 @@ export default function PrintTemplate({
           {/* Signatures */}
           <div
             style={{
-              padding: '12px 16px',
+              padding: '8px 14px',
               display: 'grid',
               gridTemplateColumns: '1fr 1px 1fr',
               alignItems: 'end',
@@ -697,12 +697,12 @@ export default function PrintTemplate({
           >
             {/* Customer Signature */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 10px' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginBottom: '6px' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ marginBottom: '4px' }}>
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round" />
                 <circle cx="12" cy="7" r="4" stroke="#aaa" strokeWidth="1.5" />
               </svg>
-              <div style={{ width: '100%', borderTop: '1.5px solid #999', paddingTop: '6px', textAlign: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#555', fontWeight: '500' }}>Customer Signature</span>
+              <div style={{ width: '100%', borderTop: '1.5px solid #999', paddingTop: '3px', textAlign: 'center' }}>
+                <span style={{ fontSize: '10px', color: '#555', fontWeight: '500' }}>Customer Signature</span>
               </div>
             </div>
 
@@ -711,11 +711,11 @@ export default function PrintTemplate({
 
             {/* Authorized Signature */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '0 10px' }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ marginBottom: '6px' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style={{ marginBottom: '4px' }}>
                 <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
-              <div style={{ width: '100%', borderTop: '1.5px solid #999', paddingTop: '6px', textAlign: 'center' }}>
-                <span style={{ fontSize: '11px', color: '#555', fontWeight: '500' }}>Authorized Signature</span>
+              <div style={{ width: '100%', borderTop: '1.5px solid #999', paddingTop: '3px', textAlign: 'center' }}>
+                <span style={{ fontSize: '10px', color: '#555', fontWeight: '500' }}>Authorized Signature</span>
               </div>
             </div>
           </div>
@@ -731,69 +731,69 @@ export default function PrintTemplate({
           }}
         >
           {/* Phone */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 22px', borderRight: '1px solid rgba(255,255,255,0.25)' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 18px', borderRight: '1px solid rgba(255,255,255,0.25)' }}>
             <div
               style={{
-                width: '40px', height: '40px',
+                width: '32px', height: '32px',
                 border: '2px solid rgba(255,255,255,0.7)',
                 borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.37 11.5 19.79 19.79 0 0 1 1.25 2.85 2 2 0 0 1 3.22 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.09 8.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16z" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', letterSpacing: '0.3px' }}>{company.phone || '01842173617'}</div>
-              <div style={{ fontSize: '11px', opacity: 0.75, marginTop: '2px' }}>For any queries</div>
+              <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.3px' }}>{company.phone || '01842173617'}</div>
+              <div style={{ fontSize: '9px', opacity: 0.75, marginTop: '1px' }}>For any queries</div>
             </div>
           </div>
 
           {/* Website */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 22px', borderRight: '1px solid rgba(255,255,255,0.25)', justifyContent: 'center' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 18px', borderRight: '1px solid rgba(255,255,255,0.25)', justifyContent: 'center' }}>
             <div
               style={{
-                width: '40px', height: '40px',
+                width: '32px', height: '32px',
                 border: '2px solid rgba(255,255,255,0.7)',
                 borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
                 <circle cx="12" cy="12" r="10" stroke="#fff" strokeWidth="2" />
                 <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', letterSpacing: '0.3px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.3px' }}>
                 {company.website || 'www.sibuildingsolutions.com'}
               </div>
-              <div style={{ fontSize: '11px', opacity: 0.75, marginTop: '2px' }}>Visit our website</div>
+              <div style={{ fontSize: '9px', opacity: 0.75, marginTop: '1px' }}>Visit our website</div>
             </div>
           </div>
 
           {/* Computer-generated note */}
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 22px' }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 18px' }}>
             <div
               style={{
-                width: '40px', height: '40px',
+                width: '32px', height: '32px',
                 border: '2px solid rgba(255,255,255,0.7)',
                 borderRadius: '8px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexShrink: 0,
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <polyline points="14,2 14,8 20,8" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 <line x1="16" y1="13" x2="8" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
                 <line x1="16" y1="17" x2="8" y2="17" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </div>
-            <div style={{ fontSize: '11.5px', opacity: 0.9, lineHeight: '1.6' }}>
+            <div style={{ fontSize: '10px', opacity: 0.9, lineHeight: '1.5' }}>
               This is a computer-generated document and does not require a signature.
             </div>
           </div>

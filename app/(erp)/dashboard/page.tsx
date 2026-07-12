@@ -86,7 +86,7 @@ export default function DashboardPage() {
       supabase.from('customers').select('*').gt('outstanding_balance', 0).order('outstanding_balance', { ascending: false }).limit(5),
       supabase.from('inventory_items').select('quantity_on_hand, product:products(id, name, sku, min_stock_level, image_url)').lt('quantity_on_hand', 20).limit(5),
       supabase.from('projects').select('*').eq('status', 'active').order('progress_percent', { ascending: false }).limit(4),
-      supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(8),
+      supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(5),
     ]);
 
     const todaySales = (todayInvRes.data || []).reduce((s: number, i: any) => s + Number(i.total_amount), 0);
@@ -389,7 +389,7 @@ export default function DashboardPage() {
         <div className="bg-white rounded-xl border border-border p-5 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-foreground">Recent Activities</h3>
-            <Link href="/reports" className="text-xs text-blue-600 hover:underline font-medium">View all</Link>
+            <Link href="/reports/activity" className="text-xs text-blue-600 hover:underline font-medium">View all</Link>
           </div>
           <div className="space-y-3">
             {recentActivities.length === 0 ? (
@@ -400,7 +400,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">No recent activity yet</p>
                 <p className="text-[10px] text-muted-foreground/70 mt-0.5">Activity will appear as you use the system</p>
               </div>
-            ) : recentActivities.slice(0, 6).map((log: any, i: number) => {
+            ) : recentActivities.slice(0, 5).map((log: any, i: number) => {
               const cfg = activityIcons[log.entity_type] || activityIcons.invoice;
               return (
                 <div key={i} className="flex items-start gap-2.5">
