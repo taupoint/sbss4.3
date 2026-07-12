@@ -519,6 +519,20 @@ export default function PrintTemplate({
                 </tr>
               ))
             )}
+            {/* Filler rows to ensure minimum table height for professional layout */}
+            {Array.from({ length: Math.max(0, 12 - items.length) }).map((_, idx) => (
+              <tr
+                key={`filler-${idx}`}
+                style={{
+                  background: (items.length + idx) % 2 === 0 ? '#fff' : '#f5f8ff',
+                  borderBottom: '1px solid #e8edf6',
+                }}
+              >
+                {Array.from({ length: 8 }).map((_, colIdx) => (
+                  <td key={colIdx} style={{ padding: '3px 8px', fontSize: '11px', height: '24px' }}>&nbsp;</td>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
 

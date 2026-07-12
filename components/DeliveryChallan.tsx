@@ -359,6 +359,20 @@ export default function DeliveryChallan({
                 );
               })
             )}
+            {/* Filler rows to ensure minimum table height for professional layout */}
+            {Array.from({ length: Math.max(0, 12 - items.length) }).map((_, idx) => (
+              <tr
+                key={`filler-${idx}`}
+                style={{
+                  background: (items.length + idx) % 2 === 0 ? '#fff' : '#f5f8ff',
+                  borderBottom: '1px solid #e8edf6',
+                }}
+              >
+                {Array.from({ length: 5 }).map((_, colIdx) => (
+                  <td key={colIdx} style={{ padding: '9px 10px', fontSize: '12px', height: '38px' }}>&nbsp;</td>
+                ))}
+              </tr>
+            ))}
             {/* Total row */}
             <tr style={{ background: PRIMARY }}>
               <td colSpan={4} style={{ padding: '9px 10px', textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>
