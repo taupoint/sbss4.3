@@ -16,7 +16,7 @@ type ReportTab = 'overview' | 'sales' | 'inventory' | 'customers' | 'pl';
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
-  const [period, setPeriod] = useState('this_month');
+  const [period, setPeriod] = useState('today');
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -31,6 +31,7 @@ export default function ReportsPage() {
     totalProducts: 0,
     inventoryValue: 0,
     cogsActual: 0,
+    salesReturnsTotal: 0,
   });
   const [monthlyData, setMonthlyData] = useState<{ month: string; sales: number; purchases: number; profit: number }[]>([]);
   const [categoryData, setCategoryData] = useState<{ name: string; revenue: number; color: string }[]>([]);
@@ -47,7 +48,7 @@ export default function ReportsPage() {
 
     const [
       invoicesRes, purchasesRes, customersRes, productsRes, invItemsRes,
-      topProductsRes, topCustomersRes, stockMovementsRes, paymentsRes
+      topProductsRes, topCustomersRes, paymentsRes, accountsRes
     ] = await Promise.all([
       supabase.from('invoices').select('total_amount, subtotal, invoice_date, status').gte('invoice_date', effectiveStart).lte('invoice_date', effectiveEnd || undefined).neq('status', 'cancelled'),
       supabase.from('purchase_orders').select('total_amount').gte('order_date', effectiveStart).lte('order_date', effectiveEnd || undefined),
@@ -56,15 +57,47 @@ export default function ReportsPage() {
       supabase.from('inventory_items').select('quantity_on_hand, product:products(cost_price)'),
       supabase.from('invoice_items').select('product_id, quantity, subtotal, unit_name, product:products(name, cost_price)').gte('created_at', effectiveStart).lte('created_at', effectiveEnd || undefined).order('quantity', { ascending: false }).limit(50),
       supabase.from('customers').select('name, total_purchases').order('total_purchases', { ascending: false }).limit(10),
-      supabase.from('stock_movements').select('quantity, unit_cost, movement_type').eq('movement_type', 'sale').gte('created_at', effectiveStart).lte('created_at', effectiveEnd || undefined),
       supabase.from('payments').select('amount').eq('payment_type', 'received').gte('payment_date', effectiveStart).lte('payment_date', effectiveEnd || undefined),
+      supabase.from('accounts').select('id, name').eq('is_active', true),
     ]);
 
     const totalRevenue = (invoicesRes.data || []).reduce((s: number, i: any) => s + Number(i.total_amount), 0);
     const totalPurchases = (purchasesRes.data || []).reduce((s: number, p: any) => s + Number(p.total_amount), 0);
-    const cogsActual = (stockMovementsRes.data || []).reduce((s: number, m: any) => s + Math.abs(Number(m.quantity)) * Number(m.unit_cost || 0), 0);
-    const grossProfit = totalRevenue - cogsActual;
-    const netProfit = grossProfit * 0.85;
+
+    // COGS from Chart of Accounts journal lines
+    const cogsAccount = (accountsRes.data || []).find((a: any) =>
+      a.name.toLowerCase().includes('cost of goods sold') || a.name.toLowerCase().includes('cogs')
+    );
+    let cogsActual = 0;
+    if (cogsAccount) {
+      const { data: cogsLines } = await supabase
+        .from('journal_lines')
+        .select('debit, credit, journal_entry:journal_entries!inner(entry_date)')
+        .eq('account_id', cogsAccount.id);
+      cogsActual = (cogsLines || []).filter((l: any) => {
+        const d = l.journal_entry?.entry_date;
+        return d && d >= effectiveStart && (!effectiveEnd || d <= effectiveEnd);
+      }).reduce((s: number, l: any) => s + Number(l.debit || 0) - Number(l.credit || 0), 0);
+    }
+
+    // Sales Returns & Allowances from Chart of Accounts
+    const salesReturnsAccount = (accountsRes.data || []).find((a: any) =>
+      a.name.toLowerCase().includes('sales return') || a.name.toLowerCase().includes('allowance')
+    );
+    let salesReturnsTotal = 0;
+    if (salesReturnsAccount) {
+      const { data: srLines } = await supabase
+        .from('journal_lines')
+        .select('debit, credit, journal_entry:journal_entries!inner(entry_date)')
+        .eq('account_id', salesReturnsAccount.id);
+      salesReturnsTotal = (srLines || []).filter((l: any) => {
+        const d = l.journal_entry?.entry_date;
+        return d && d >= effectiveStart && (!effectiveEnd || d <= effectiveEnd);
+      }).reduce((s: number, l: any) => s + Number(l.debit || 0) - Number(l.credit || 0), 0);
+    }
+
+    const grossProfit = totalRevenue - salesReturnsTotal - cogsActual;
+    const netProfit = grossProfit - Math.max(0, grossProfit) * 0.15;
     const inventoryValue = (invItemsRes.data || []).reduce((s: number, item: any) => s + (Number(item.quantity_on_hand) * Number(item.product?.cost_price || 0)), 0);
 
     setStats({
@@ -77,6 +110,7 @@ export default function ReportsPage() {
       totalProducts: productsRes.data?.length || 0,
       inventoryValue,
       cogsActual,
+      salesReturnsTotal,
     });
 
     const productMap: Record<string, { name: string; sales: number; revenue: number; cost: number; unit?: string }> = {};
@@ -487,9 +521,15 @@ export default function ReportsPage() {
                 <span className="text-sm text-gray-700">Sales Revenue</span>
                 <span className="text-sm font-medium text-gray-800">{formatCurrency(stats.totalRevenue)}</span>
               </div>
+              {stats.salesReturnsTotal > 0 && (
+                <div className="flex justify-between items-center px-6 py-2 border-b border-gray-100">
+                  <span className="text-sm text-gray-700">Sales Returns &amp; Allowances</span>
+                  <span className="text-sm font-medium text-red-600">({formatCurrency(stats.salesReturnsTotal)})</span>
+                </div>
+              )}
               <div className="flex justify-between items-center px-6 py-2 bg-blue-50 border-b border-border">
                 <span className="text-sm font-semibold text-gray-800">Total Revenue</span>
-                <span className="text-sm font-bold text-blue-800">{formatCurrency(stats.totalRevenue)}</span>
+                <span className="text-sm font-bold text-blue-800">{formatCurrency(stats.totalRevenue - stats.salesReturnsTotal)}</span>
               </div>
 
               {/* COGS Section */}
@@ -517,17 +557,17 @@ export default function ReportsPage() {
               </div>
               <div className="flex justify-between items-center px-6 py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-700">Operating Expenses (Est.)</span>
-                <span className="text-sm font-medium text-red-600">({formatCurrency(stats.grossProfit * 0.15)})</span>
+                <span className="text-sm font-medium text-red-600">({formatCurrency(Math.max(0, stats.grossProfit) * 0.15)})</span>
               </div>
               <div className="flex justify-between items-center px-6 py-2 bg-red-50 border-b border-border">
                 <span className="text-sm font-semibold text-gray-800">Total Operating Expenses</span>
-                <span className="text-sm font-bold text-red-800">({formatCurrency(stats.grossProfit * 0.15)})</span>
+                <span className="text-sm font-bold text-red-800">({formatCurrency(Math.max(0, stats.grossProfit) * 0.15)})</span>
               </div>
 
               {/* Operating Profit */}
               <div className="flex justify-between items-center px-6 py-3 bg-green-50 border-b border-border">
                 <span className="text-sm font-bold text-gray-800">OPERATING PROFIT</span>
-                <span className="text-lg font-bold text-green-700">{formatCurrency(stats.grossProfit * 0.85)}</span>
+                <span className="text-lg font-bold text-green-700">{formatCurrency(stats.grossProfit - Math.max(0, stats.grossProfit) * 0.15)}</span>
               </div>
 
               {/* Net Profit */}

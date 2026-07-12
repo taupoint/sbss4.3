@@ -199,9 +199,9 @@ export default function PrintTemplate({
               src={logoSrc}
               alt="SI Building Solutions"
               style={{
-                height: '72px',
+                height: '90px',
                 width: 'auto',
-                maxWidth: '320px',
+                maxWidth: '400px',
                 objectFit: 'contain',
                 display: 'block',
               }}
@@ -628,8 +628,7 @@ export default function PrintTemplate({
               }}
             >
               <li style={{ paddingLeft: '4px', marginBottom: '1px' }}>Please check all items and quantities before leaving the store.</li>
-              <li style={{ paddingLeft: '4px', marginBottom: '1px' }}>Any discrepancy must be reported within 24 hours.</li>
-              <li style={{ paddingLeft: '4px' }}>Payment is due as per agreed terms.</li>
+              <li style={{ paddingLeft: '4px' }}>Any discrepancy must be reported within 24 hours.</li>
             </ol>
             {notes && (
               <div style={{ marginTop: '4px', fontSize: '10px', color: '#666' }}>

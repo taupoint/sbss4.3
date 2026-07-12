@@ -20,7 +20,7 @@ interface ProductResult {
   units?: ProductUnit[];
 }
 
-interface Brand {
+interface FilterOption {
   id: string;
   name: string;
 }
@@ -37,21 +37,26 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
   const [results, setResults] = useState<ProductResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [selectedBrand, setSelectedBrand] = useState<string>('');
+
+  const [brands, setBrands] = useState<FilterOption[]>([]);
+  const [selectedBrand, setSelectedBrand] = useState('');
   const [brandDropdownOpen, setBrandDropdownOpen] = useState(false);
   const [brandSearch, setBrandSearch] = useState('');
+
+  const [categories, setCategories] = useState<FilterOption[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const [categorySearch, setCategorySearch] = useState('');
+
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    supabase
-      .from('brands')
-      .select('id, name')
-      .eq('is_active', true)
-      .order('name')
+    supabase.from('brands').select('id, name').eq('is_active', true).order('name')
       .then(({ data }) => setBrands(data || []));
+    supabase.from('categories').select('id, name').eq('is_active', true).order('name')
+      .then(({ data }) => setCategories(data || []));
   }, []);
 
   useEffect(() => {
@@ -59,6 +64,7 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
         setBrandDropdownOpen(false);
+        setCategoryDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -81,9 +87,8 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
         .order('name')
         .limit(20);
 
-      if (selectedBrand) {
-        dbQuery = dbQuery.eq('brand_id', selectedBrand);
-      }
+      if (selectedBrand) dbQuery = dbQuery.eq('brand_id', selectedBrand);
+      if (selectedCategory) dbQuery = dbQuery.eq('category_id', selectedCategory);
 
       const { data } = await dbQuery;
       setResults((data as ProductResult[]) || []);
@@ -92,7 +97,7 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
     }, 250);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, selectedBrand]);
+  }, [query, selectedBrand, selectedCategory]);
 
   function handleSelect(product: ProductResult) {
     onSelect(product);
@@ -109,26 +114,41 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
     ? brands.filter(b => b.name.toLowerCase().includes(brandSearch.trim().toLowerCase()))
     : brands;
 
-  return (
-    <div ref={containerRef} className={`relative flex gap-2 ${className}`}>
-      {/* Brand filter */}
+  const selectedCategoryName = categories.find(c => c.id === selectedCategory)?.name;
+  const filteredCategories = categorySearch.trim()
+    ? categories.filter(c => c.name.toLowerCase().includes(categorySearch.trim().toLowerCase()))
+    : categories;
+
+  function FilterDropdown({ label, selected, selectedName, dropdownOpen, setDropdownOpen, search, setSearch, options, onSelect: onSelectFilter, onClear }: {
+    label: string;
+    selected: string;
+    selectedName?: string;
+    dropdownOpen: boolean;
+    setDropdownOpen: (v: boolean) => void;
+    search: string;
+    setSearch: (v: string) => void;
+    options: FilterOption[];
+    onSelect: (id: string) => void;
+    onClear: () => void;
+  }) {
+    return (
       <div className="relative shrink-0">
         <button
           type="button"
-          onClick={() => setBrandDropdownOpen(!brandDropdownOpen)}
+          onClick={() => setDropdownOpen(!dropdownOpen)}
           className={`flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm bg-white hover:border-blue-300 focus:outline-none focus:border-blue-500 transition whitespace-nowrap ${
-            selectedBrand ? 'border-blue-500 text-blue-600' : 'border-border text-muted-foreground'
+            selected ? 'border-blue-500 text-blue-600' : 'border-border text-muted-foreground'
           }`}
-          title="Filter by brand"
+          title={`Filter by ${label}`}
         >
           <Filter className="w-3.5 h-3.5" />
-          <span className="max-w-[120px] truncate">{selectedBrand ? selectedBrandName : 'All Brands'}</span>
-          {selectedBrand && (
+          <span className="max-w-[100px] truncate">{selected ? selectedName : `All ${label}s`}</span>
+          {selected && (
             <span
               role="button"
               tabIndex={0}
-              onClick={(e) => { e.stopPropagation(); setSelectedBrand(''); setBrandSearch(''); }}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setSelectedBrand(''); setBrandSearch(''); } }}
+              onClick={(e) => { e.stopPropagation(); onClear(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); onClear(); } }}
               className="ml-0.5 hover:text-red-500"
             >
               <X className="w-3 h-3" />
@@ -136,16 +156,16 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
           )}
         </button>
 
-        {brandDropdownOpen && (
-          <div className="absolute top-full left-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-50 w-56 overflow-hidden">
+        {dropdownOpen && (
+          <div className="absolute top-full left-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-50 w-52 overflow-hidden">
             <div className="p-2 border-b border-border">
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
                 <input
                   type="text"
-                  value={brandSearch}
-                  onChange={e => setBrandSearch(e.target.value)}
-                  placeholder="Search brands..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={`Search ${label.toLowerCase()}s...`}
                   className="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                   autoFocus
                 />
@@ -154,31 +174,60 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
             <div className="max-h-48 overflow-y-auto">
               <button
                 type="button"
-                onClick={() => { setSelectedBrand(''); setBrandDropdownOpen(false); setBrandSearch(''); }}
-                className={`w-full flex items-center px-3 py-2 text-sm hover:bg-blue-50 transition text-left ${!selectedBrand ? 'bg-blue-50 text-blue-600' : 'text-muted-foreground'}`}
+                onClick={() => { onClear(); setDropdownOpen(false); }}
+                className={`w-full flex items-center px-3 py-2 text-sm hover:bg-blue-50 transition text-left ${!selected ? 'bg-blue-50 text-blue-600' : 'text-muted-foreground'}`}
               >
-                All Brands
+                All {label}s
               </button>
-              {filteredBrands.map(b => (
+              {options.map(opt => (
                 <button
-                  key={b.id}
+                  key={opt.id}
                   type="button"
-                  onClick={() => { setSelectedBrand(b.id); setBrandDropdownOpen(false); setBrandSearch(''); }}
-                  className={`w-full flex items-center px-3 py-2 text-sm hover:bg-blue-50 transition text-left ${selectedBrand === b.id ? 'bg-blue-50 text-blue-600' : 'text-foreground'}`}
+                  onClick={() => { onSelectFilter(opt.id); setDropdownOpen(false); setSearch(''); }}
+                  className={`w-full flex items-center px-3 py-2 text-sm hover:bg-blue-50 transition text-left ${selected === opt.id ? 'bg-blue-50 text-blue-600' : 'text-foreground'}`}
                 >
-                  {b.name}
+                  {opt.name}
                 </button>
               ))}
-              {filteredBrands.length === 0 && (
-                <div className="px-3 py-3 text-center text-xs text-muted-foreground">No brands found</div>
+              {options.length === 0 && (
+                <div className="px-3 py-3 text-center text-xs text-muted-foreground">No {label.toLowerCase()}s found</div>
               )}
             </div>
           </div>
         )}
       </div>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className={`relative flex gap-2 flex-wrap ${className}`}>
+      <FilterDropdown
+        label="Category"
+        selected={selectedCategory}
+        selectedName={selectedCategoryName}
+        dropdownOpen={categoryDropdownOpen}
+        setDropdownOpen={setCategoryDropdownOpen}
+        search={categorySearch}
+        setSearch={setCategorySearch}
+        options={filteredCategories}
+        onSelect={setSelectedCategory}
+        onClear={() => { setSelectedCategory(''); setCategorySearch(''); }}
+      />
+      <FilterDropdown
+        label="Brand"
+        selected={selectedBrand}
+        selectedName={selectedBrandName}
+        dropdownOpen={brandDropdownOpen}
+        setDropdownOpen={setBrandDropdownOpen}
+        search={brandSearch}
+        setSearch={setBrandSearch}
+        options={filteredBrands}
+        onSelect={setSelectedBrand}
+        onClear={() => { setSelectedBrand(''); setBrandSearch(''); }}
+      />
 
       {/* Search input */}
-      <div className="relative flex-1">
+      <div className="relative flex-1 min-w-[200px]">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
           <input
@@ -206,7 +255,7 @@ export default function ProductSearchInput({ onSelect, placeholder = 'Search pro
             {loading ? (
               <div className="px-4 py-3 text-sm text-muted-foreground">Searching...</div>
             ) : results.length === 0 ? (
-              <div className="px-4 py-3 text-sm text-muted-foreground">No products found for "{query}"</div>
+              <div className="px-4 py-3 text-sm text-muted-foreground">No products found for &quot;{query}&quot;</div>
             ) : results.map(p => {
               const s = showStock ? stock(p) : null;
               return (

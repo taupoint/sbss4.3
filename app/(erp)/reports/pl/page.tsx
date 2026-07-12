@@ -93,18 +93,31 @@ export default function PLPage() {
     setPeriodLabel(label);
 
     // Fetch all data in parallel
-    const [invoicesRes, stockMovementsRes, accountsRes] = await Promise.all([
+    const [invoicesRes, accountsRes] = await Promise.all([
       supabase.from('invoices').select('total_amount').gte('invoice_date', startDate).lte('invoice_date', endDate).neq('status', 'cancelled'),
-      supabase.from('stock_movements').select('quantity, unit_cost, movement_type').eq('movement_type', 'sale').gte('created_at', startDate).lte('created_at', endDate),
       supabase.from('accounts').select('id, code, name, account_type, balance'),
     ]);
 
     // Calculate sales revenue
     const salesRevenue = (invoicesRes.data || []).reduce((sum, inv) => sum + Number(inv.total_amount), 0);
 
-    // Calculate COGS from actual stock movements (sales)
-    const costOfGoodsSold = (stockMovementsRes.data || [])
-      .reduce((sum, m) => sum + (Math.abs(Number(m.quantity)) * Number(m.unit_cost || 0)), 0);
+    // Calculate COGS from Chart of Accounts journal lines
+    const cogsAccount = (accountsRes.data || []).find(a =>
+      a.name.toLowerCase().includes('cost of goods sold') || a.name.toLowerCase().includes('cogs')
+    );
+    let costOfGoodsSold = 0;
+    if (cogsAccount) {
+      const { data: cogsLines } = await supabase
+        .from('journal_lines')
+        .select('debit, credit, journal_entry:journal_entries!inner(entry_date)')
+        .eq('account_id', cogsAccount.id);
+      costOfGoodsSold = (cogsLines || [])
+        .filter((l: any) => {
+          const d = l.journal_entry?.entry_date;
+          return d && d >= startDate && d <= endDate;
+        })
+        .reduce((s: number, l: any) => s + Number(l.debit || 0) - Number(l.credit || 0), 0);
+    }
 
     // Service revenue (other operating revenue)
     let serviceRevenue = 0;
