@@ -149,24 +149,22 @@ export default function PrintTemplate({
         @media print {
           @page {
             size: A4;
-            margin: 10mm;
+            margin: 8mm;
           }
           body * { visibility: hidden !important; }
           .print-document, .print-document * { visibility: visible !important; }
           .print-document {
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
+           position: static !important;
             width: 100% !important;
             max-width: 100% !important;
-            margin: 0 !important;
+           margin: 0 auto;
             border: none !important;
             border-radius: 0 !important;
             box-shadow: none !important;
             overflow: visible !important;
           }
           .print-header-logo {
-            height: 60px !important;
+            height: 52px !important;
           }
           .print-header-section {
             padding: 8px 16px !important;
@@ -191,6 +189,10 @@ export default function PrintTemplate({
             page-break-inside: avoid;
             break-inside: avoid;
           }
+          /* Compact print overrides to fit on one A4 page */
+          .print-document img.print-header-logo { height: 52px !important; }
+          .print-info-section td { padding-bottom: 1px !important; }
+          .print-items-table td, .print-items-table th { padding-top: 2px !important; padding-bottom: 2px !important; }
         }
       `}</style>
 
@@ -204,7 +206,7 @@ export default function PrintTemplate({
           margin: '0 auto',
           border: '1px solid #dde3ef',
           borderRadius: '4px',
-          overflow: 'hidden',
+          overflow: 'visible',
           boxSizing: 'border-box',
         }}
       >
@@ -214,7 +216,7 @@ export default function PrintTemplate({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '8px 20px',
+            padding: '10px 20px',
             borderBottom: `3px solid ${PRIMARY}`,
             background: '#fff',
             gap: '14px',
@@ -227,9 +229,9 @@ export default function PrintTemplate({
               alt="SI Building Solutions"
               className="print-header-logo"
               style={{
-                height: '80px',
+                height: '72px',
                 width: 'auto',
-                maxWidth: '400px',
+                maxWidth: '380px',
                 objectFit: 'contain',
                 display: 'block',
               }}
@@ -258,11 +260,11 @@ export default function PrintTemplate({
           >
             <div
               style={{
-                fontSize: '30px',
+                fontSize: '28px',
                 fontWeight: '900',
                 color: PRIMARY,
                 letterSpacing: '2px',
-                lineHeight: '1',
+                lineHeight: '1.1',
               }}
             >
               {docType}
@@ -547,8 +549,9 @@ export default function PrintTemplate({
                 </tr>
               ))
             )}
-            {/* Filler rows — capped at 5 to avoid pushing content to page 2 */}
-            {Array.from({ length: Math.max(0, Math.min(5, 12 - items.length)) }).map((_, idx) => (
+
+            {/* Filler rows to fill the A4 page professionally */}
+            {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, idx) => (
               <tr
                 key={`filler-${idx}`}
                 style={{
@@ -557,10 +560,11 @@ export default function PrintTemplate({
                 }}
               >
                 {Array.from({ length: 8 }).map((_, colIdx) => (
-                  <td key={colIdx} style={{ padding: '3px 8px', fontSize: '11px', height: '24px' }}>&nbsp;</td>
+                  <td key={colIdx} style={{ padding: '3px 8px', fontSize: '11px', height: '20px' }}>&nbsp;</td>
                 ))}
               </tr>
             ))}
+
           </tbody>
         </table>
 

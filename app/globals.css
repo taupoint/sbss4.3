@@ -152,21 +152,23 @@
   body * { visibility: hidden !important; }
   .print-modal, .print-modal * { visibility: visible !important; }
   .print-modal {
-    position: fixed !important;
-    inset: 0 !important;
+    position: static !important;
     background: white !important;
     z-index: 9999 !important;
-    padding: 2rem !important;
+    padding: 0 !important;
     overflow: visible !important;
     max-width: none !important;
     max-height: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    inset: auto !important;
   }
   .no-print { display: none !important; }
   .print-document {
-    max-width: 800px !important;
-    margin: 0 auto !important;
+    max-width: 100% !important;
+    margin: 0 !important;
   }
   @page {
     margin: 1.5cm;

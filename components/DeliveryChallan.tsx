@@ -60,12 +60,12 @@ export default function DeliveryChallan({
     <>
       <style>{`
         @media print {
-          @page { size: A4; margin: 10mm; }
+          @page { size: A4; margin: 8mm; }
           body * { visibility: hidden !important; }
           .print-document, .print-document * { visibility: visible !important; }
           .print-document {
-            position: absolute !important;
-            top: 0 !important; left: 0 !important;
+            position: static !important;
+            top: auto !important; left: auto !important;
             width: 100% !important; max-width: 100% !important;
             margin: 0 !important;
             border: none !important; border-radius: 0 !important;
@@ -75,8 +75,9 @@ export default function DeliveryChallan({
           .print-items-table { page-break-inside: auto; }
           .print-items-table tr { page-break-inside: avoid; break-inside: avoid; page-break-after: auto; }
           .print-footer-section { page-break-inside: avoid; break-inside: avoid; }
-          .print-header-logo { height: 60px !important; }
+          .print-header-logo { height: 52px !important; }
           .print-header-section { padding: 8px 16px !important; }
+          .print-items-table td, .print-items-table th { padding-top: 3px !important; padding-bottom: 3px !important; }
         }
       `}</style>
 
@@ -90,7 +91,7 @@ export default function DeliveryChallan({
           margin: '0 auto',
           border: '1px solid #dde3ef',
           borderRadius: '4px',
-          overflow: 'hidden',
+          overflow: 'visible',
           boxSizing: 'border-box',
         }}
       >
@@ -100,10 +101,10 @@ export default function DeliveryChallan({
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '14px 24px',
+            padding: '10px 20px',
             borderBottom: `3px solid ${PRIMARY}`,
             background: '#fff',
-            gap: '16px',
+            gap: '14px',
           }}
         >
           {/* Logo */}
@@ -115,7 +116,7 @@ export default function DeliveryChallan({
               style={{
                 height: '72px',
                 width: 'auto',
-                maxWidth: '340px',
+                maxWidth: '380px',
                 objectFit: 'contain',
                 display: 'block',
               }}
@@ -366,8 +367,9 @@ export default function DeliveryChallan({
                 );
               })
             )}
-            {/* Filler rows to ensure minimum table height for professional layout */}
-            {Array.from({ length: Math.max(0, 12 - items.length) }).map((_, idx) => (
+
+            {/* Filler rows to fill the A4 page professionally */}
+            {Array.from({ length: Math.max(0, 10 - items.length) }).map((_, idx) => (
               <tr
                 key={`filler-${idx}`}
                 style={{
@@ -376,10 +378,11 @@ export default function DeliveryChallan({
                 }}
               >
                 {Array.from({ length: 5 }).map((_, colIdx) => (
-                  <td key={colIdx} style={{ padding: '9px 10px', fontSize: '12px', height: '38px' }}>&nbsp;</td>
+                  <td key={colIdx} style={{ padding: '9px 10px', fontSize: '12px', height: '24px' }}>&nbsp;</td>
                 ))}
               </tr>
             ))}
+
             {/* Total row */}
             <tr style={{ background: PRIMARY }}>
               <td colSpan={4} style={{ padding: '9px 10px', textAlign: 'right', fontSize: '12px', fontWeight: '700', color: '#fff', letterSpacing: '0.5px' }}>

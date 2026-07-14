@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, formatDate } from '@/lib/format';
@@ -16,6 +16,7 @@ import { isMultiUnitEnabled, getDefaultSaleUnit, convertToBaseUnit } from '@/lib
 import ProductSearchInput from '@/components/ui/ProductSearchInput';
 import ProductFilterDropdown from '@/components/ui/ProductFilterDropdown';
 import PrintTemplate from '@/components/PrintTemplate';
+import { printNode } from '@/lib/print';
 
 const statusConfig: Record<InvoiceStatus, { label: string; color: string; bg: string }> = {
   draft: { label: 'Draft', color: 'text-gray-600', bg: 'bg-gray-100' },
@@ -86,7 +87,7 @@ export default function SalesPage() {
   const [viewingChallan, setViewingChallan] = useState<any>(null);
   const [editingInvoice, setEditingInvoice] = useState<InvoiceWithCustomer | null>(null);
   const [cancellingInvoice, setCancellingInvoice] = useState<InvoiceWithCustomer | null>(null);
-  const [viewTab, setViewTab] = useState<'details' | 'history'>('details');
+  const [viewTab, setViewTab] = useState<'details' | 'history' | 'cost-history'>('details');
 
   useEffect(() => { loadData(); }, [period]);
 
@@ -254,6 +255,7 @@ export default function SalesPage() {
     const cfg = statusConfig[invoice.status as InvoiceStatus] || statusConfig.draft;
     const balance = Number(invoice.balance_due ?? (Number(invoice.total_amount) - Number(invoice.amount_paid)));
     const discountTotal = items.reduce((s, item) => s + (item.quantity * item.unit_price * (item.discount_percent || 0) / 100), 0);
+    const printRef = useRef<HTMLDivElement>(null);
 
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -269,6 +271,9 @@ export default function SalesPage() {
                   <History className="w-3 h-3" />History
                   {(invoice as any).edit_count > 0 && <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">{(invoice as any).edit_count}</span>}
                 </button>
+                <button onClick={() => setViewTab('cost-history')} className={`flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium transition ${viewTab === 'cost-history' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+                  <DollarSign className="w-3 h-3" />Cost Price History
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -282,8 +287,8 @@ export default function SalesPage() {
                   <Ban className="w-3.5 h-3.5" />Cancel
                 </button>
               )}
-              <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
-                <Printer className="w-3.5 h-3.5" />Print / PDF
+              <button onClick={() => printNode(printRef.current)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
+                <Printer className="w-3.5 h-3.5" />Print
               </button>
               <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
             </div>
@@ -291,7 +296,7 @@ export default function SalesPage() {
 
           {/* Print body — only visible on details tab */}
           {viewTab === 'details' ? (
-          <div className="p-8">
+          <div className="p-8" ref={printRef}>
             <PrintTemplate
               docType="INVOICE"
               docNumber={invoice.invoice_number}
@@ -366,6 +371,10 @@ export default function SalesPage() {
               )}
             </div>
           )}
+          </div>
+          ) : viewTab === 'cost-history' ? (
+          <div className="p-6">
+            <CostPriceHistoryTab items={items} invoiceId={invoice.id} />
           </div>
           ) : (
           <div className="p-6">
@@ -857,6 +866,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [customerList, setCustomerList] = useState(customers);
   const [paymentMethods, setPaymentMethods] = useState<{ code: string; name: string }[]>([]);
+  const [formTab, setFormTab] = useState<'items' | 'cost'>('items');
 
   useEffect(() => {
     supabase.from('payment_methods').select('code, name').eq('is_active', true).order('sort_order')
@@ -927,6 +937,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
         ...updated[index],
         selected_unit: unit,
         unit_price: unit.price,
+        cost_price: unit.cost_price || updated[index].cost_price || 0,
         base_quantity: newBaseQty,
       };
     } else if (field === 'quantity') {
@@ -1024,6 +1035,30 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
     const { error: itemsError } = await supabase.from('invoice_items').insert(invoiceItems);
     if (itemsError) { setError(itemsError.message); setSaving(false); return; }
 
+    // Record cost price history snapshot for each item at time of sale
+    const costHistoryRecords = items.map(item => {
+      const unitName = item.selected_unit?.unit_name || item.product_unit || 'pcs';
+      const convFactor = item.selected_unit?.conversion_factor || 1;
+      const costPerUnit = item.cost_price || 0;
+      const totalCostAdded = costPerUnit * item.quantity;
+      return {
+        product_id: item.product_id,
+        product_name: item.product_name,
+        product_sku: item.product_sku || '',
+        invoice_id: invoice.id,
+        unit: unitName,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        cost_price_per_qty: costPerUnit,
+        cost_price_for_added_qty: totalCostAdded,
+        total_cost_price_single: costPerUnit,
+        total_cost_price_added: totalCostAdded,
+      };
+    });
+    if (costHistoryRecords.length > 0) {
+      await supabase.from('cost_price_history').insert(costHistoryRecords);
+    }
+
     // Record payment if full or partial
     if (amountPaid > 0) {
       const { data: payNum } = await supabase.rpc('generate_payment_number');
@@ -1105,6 +1140,26 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
           </div>
 
           <div>
+            <div className="flex items-center gap-1 mb-3 border-b border-border">
+              <button
+                type="button"
+                onClick={() => setFormTab('items')}
+                className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px transition ${formTab === 'items' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              >
+                Line Items
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormTab('cost')}
+                className={`px-3 py-2 text-xs font-semibold border-b-2 -mb-px transition flex items-center gap-1.5 ${formTab === 'cost' ? 'border-blue-600 text-blue-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+              >
+                Cost Price History
+                {items.length > 0 && <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${formTab === 'cost' ? 'bg-blue-100 text-blue-700' : 'bg-muted text-muted-foreground'}`}>{items.length}</span>}
+              </button>
+            </div>
+
+            {formTab === 'items' && (
+            <>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-medium">Line Items</label>
               {items.length > 0 && <span className="text-xs text-muted-foreground">{items.length} item{items.length !== 1 ? 's' : ''}</span>}
@@ -1187,6 +1242,70 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
                 </tbody>
               </table>
             </div>
+            )}
+            </>
+            )}
+
+            {formTab === 'cost' && (
+              <div className="space-y-3">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+                  This tab records the cost price of each product in this invoice at the time of sale. When the invoice is saved, this snapshot is stored permanently in the cost price history for future reference.
+                </div>
+                {items.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <p className="text-sm">No products added yet. Add products in the Line Items tab to see their cost prices.</p>
+                  </div>
+                ) : (
+                  <div className="border border-border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted/40">
+                        <tr>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Product</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Unit</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Qty</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Cost / 1 Qty</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Total Cost (Single)</th>
+                          <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Total Cost (Added Qty)</th>
+                          <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Recorded At</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {items.map((item, index) => {
+                          const unitName = item.selected_unit?.unit_name || item.product_unit || 'pcs';
+                          const convFactor = item.selected_unit?.conversion_factor || 1;
+                          const costPerUnit = item.cost_price || 0;
+                          const costPerBase = convFactor > 0 ? costPerUnit / convFactor : costPerUnit;
+                          const totalCostSingle = costPerUnit;
+                          const totalCostAdded = costPerUnit * item.quantity;
+                          return (
+                            <tr key={index} className="hover:bg-muted/20">
+                              <td className="px-3 py-2">
+                                <p className="text-sm font-medium text-foreground">{item.product_name}</p>
+                                <p className="text-[10px] text-muted-foreground">{item.product_sku}</p>
+                              </td>
+                              <td className="px-3 py-2 text-sm text-foreground">{unitName}</td>
+                              <td className="px-3 py-2 text-right text-sm text-foreground">{item.quantity}</td>
+                              <td className="px-3 py-2 text-right text-sm text-foreground">{formatCurrency(costPerUnit)}</td>
+                              <td className="px-3 py-2 text-right text-sm text-foreground">{formatCurrency(totalCostSingle)}</td>
+                              <td className="px-3 py-2 text-right text-sm font-semibold text-foreground">{formatCurrency(totalCostAdded)}</td>
+                              <td className="px-3 py-2 text-xs text-muted-foreground">{new Date().toLocaleString()}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="bg-muted/30">
+                        <tr>
+                          <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Total Cost:</td>
+                          <td className="px-3 py-2 text-right text-sm font-bold text-foreground">
+                            {formatCurrency(items.reduce((s, i) => s + (i.cost_price || 0) * i.quantity, 0))}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
@@ -1788,23 +1907,24 @@ function NetCollectedBreakdownModal({ stats, onClose }: { stats: any; onClose: (
 }
 
 function DeliveryChallanModal({ data, companySettings, onClose }: {
-  data: { delivery: any; items: any[]; invoiceNumber?: string };
+  data: any;
   companySettings: any;
   onClose: () => void;
 }) {
+  const printRef = useRef<HTMLDivElement>(null);
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="print-modal bg-white rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="no-print flex items-center justify-between px-6 py-3 border-b border-border sticky top-0 bg-white z-10">
           <span className="text-sm font-semibold text-muted-foreground">Delivery Challan Preview</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
-              <Printer className="w-3.5 h-3.5" />Print / PDF
+            <button onClick={() => printNode(printRef.current)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition">
+              <Printer className="w-3.5 h-3.5" />Print
             </button>
             <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1"><X className="w-5 h-5" /></button>
           </div>
         </div>
-        <div className="p-8">
+        <div className="p-8" ref={printRef}>
           <DeliveryChallan
             challanNumber={data.delivery.delivery_number}
             deliveryDate={data.delivery.delivery_date || undefined}
@@ -2134,6 +2254,88 @@ function CancelInvoiceModal({ invoice, onClose, onDone }: { invoice: any; onClos
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function CostPriceHistoryTab({ items, invoiceId }: { items: any[]; invoiceId: string }) {
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    supabase
+      .from('cost_price_history')
+      .select('*')
+      .eq('invoice_id', invoiceId)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setHistory(data || []);
+        setLoading(false);
+      });
+  }, [invoiceId]);
+
+  if (loading) {
+    return <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-8 bg-muted rounded animate-pulse" />)}</div>;
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+          This tab shows the cost price of each product in this invoice at the time of sale, as recorded permanently in the cost price history.
+        </div>
+        <div className="text-center py-12 text-muted-foreground">
+          <p className="text-sm">No cost price history was recorded for this invoice.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+        This tab shows the cost price of each product in this invoice at the time of sale, as recorded permanently in the cost price history.
+      </div>
+      <div className="border border-border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-muted/40">
+            <tr>
+              <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Product</th>
+              <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Unit</th>
+              <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Qty</th>
+              <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Cost / 1 Qty</th>
+              <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Total Cost (Single)</th>
+              <th className="text-right text-xs font-semibold text-muted-foreground px-3 py-2">Total Cost (Added Qty)</th>
+              <th className="text-left text-xs font-semibold text-muted-foreground px-3 py-2">Recorded At</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {history.map((h: any, index: number) => (
+              <tr key={h.id || index} className="hover:bg-muted/20">
+                <td className="px-3 py-2">
+                  <p className="text-sm font-medium text-foreground">{h.product_name || '—'}</p>
+                  <p className="text-[10px] text-muted-foreground">{h.product_sku}</p>
+                </td>
+                <td className="px-3 py-2 text-sm text-foreground">{h.unit || 'pcs'}</td>
+                <td className="px-3 py-2 text-right text-sm text-foreground">{h.quantity}</td>
+                <td className="px-3 py-2 text-right text-sm text-foreground">{formatCurrency(h.cost_price_per_qty)}</td>
+                <td className="px-3 py-2 text-right text-sm text-foreground">{formatCurrency(h.total_cost_price_single)}</td>
+                <td className="px-3 py-2 text-right text-sm font-semibold text-foreground">{formatCurrency(h.total_cost_price_added)}</td>
+                <td className="px-3 py-2 text-xs text-muted-foreground">{h.recorded_at ? new Date(h.recorded_at).toLocaleString() : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="bg-muted/30">
+            <tr>
+              <td colSpan={5} className="px-3 py-2 text-right text-xs font-semibold text-muted-foreground">Total Cost:</td>
+              <td className="px-3 py-2 text-right text-sm font-bold text-foreground">
+                {formatCurrency(history.reduce((s, h) => s + Number(h.total_cost_price_added || 0), 0))}
+              </td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </div>
   );
