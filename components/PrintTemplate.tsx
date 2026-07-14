@@ -155,8 +155,6 @@ export default function PrintTemplate({
           .print-document, .print-document * { visibility: visible !important; }
           .print-document {
            position: static !important;
-            top: 0 !important;
-            left: 0 !important;
             width: 100% !important;
             max-width: 100% !important;
            margin: 0 auto;
