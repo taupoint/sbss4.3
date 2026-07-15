@@ -236,6 +236,24 @@ export default function POSPage() {
     ));
   }
 
+  function updateCartQuantity(id: string, unitId: string | undefined, newQty: number) {
+    if (isNaN(newQty) || newQty < 0) return;
+    setCart(prev => prev.map(i => {
+      if (i.id !== id || (unitId && i.selected_unit?.id !== unitId)) return i;
+      const baseQty = i.selected_unit ? convertToBaseUnit(newQty, i.selected_unit) : newQty;
+      return { ...i, quantity: newQty, base_quantity: baseQty };
+    }));
+  }
+
+  function reorderCart(fromIndex: number, toIndex: number) {
+    setCart(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }
+
   const subtotal = cart.reduce((s, i) => s + i.unit_price * i.quantity, 0);
   const discountAmount = (subtotal * discount) / 100;
   const total = subtotal - discountAmount;
@@ -442,6 +460,8 @@ export default function POSPage() {
   const [customerSearch, setCustomerSearch] = useState('');
   const [customerDropdownOpen, setCustomerDropdownOpen] = useState(false);
   const [showCostPrice, setShowCostPrice] = useState<string | null>(null);
+  const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [dragOverItem, setDragOverItem] = useState<number | null>(null);
 
   useEffect(() => {
     if (!customerDropdownOpen) return;
@@ -845,14 +865,21 @@ export default function POSPage() {
               </div>
             </div>
           ) : cartTab === 'items' ? (
-            cart.map(item => (
-            <div key={`${item.id}-${item.selected_unit?.id || 'default'}`} className="flex items-center gap-2 bg-muted/30 rounded-xl p-2">
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
-                {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <span className="text-base">?</span>}
-              </div>
+            cart.map((item, index) => (
+            <div
+              key={`${item.id}-${item.selected_unit?.id || 'default'}`}
+              draggable
+              onDragStart={() => setDraggedItem(index)}
+              onDragOver={e => { e.preventDefault(); setDragOverItem(index); }}
+              onDrop={() => { if (draggedItem !== null && draggedItem !== index) reorderCart(draggedItem, index); setDraggedItem(null); setDragOverItem(null); }}
+              onDragEnd={() => { setDraggedItem(null); setDragOverItem(null); }}
+              className={`flex items-center gap-2 bg-muted/30 rounded-xl p-2 transition-all ${draggedItem === index ? 'opacity-40' : ''} ${dragOverItem === index && draggedItem !== index ? 'border-2 border-blue-400' : ''} cursor-grab active:cursor-grabbing`}
+            >
+              <span className="text-muted-foreground/40 text-xs select-none shrink-0">⠿</span>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-semibold text-foreground truncate">{item.name}</p>
                 <div className="flex items-center gap-1 mt-0.5">
+                  <span className="text-[10px] text-muted-foreground">৳</span>
                   <input
                     type="number"
                     min="0"
@@ -860,14 +887,22 @@ export default function POSPage() {
                     value={item.unit_price}
                     onChange={e => updateCartPrice(item.id, item.selected_unit?.id, parseFloat(e.target.value) || 0)}
                     onClick={e => e.stopPropagation()}
-                    className="w-16 text-[10px] border border-border rounded px-1 py-0.5 focus:outline-none focus:border-blue-400 text-right bg-white"
+                    className="w-14 text-[10px] border border-border rounded px-1 py-0.5 focus:outline-none focus:border-blue-400 text-right bg-white"
                   />
                   {item.selected_unit && <span className="text-[10px] text-muted-foreground">/ {item.selected_unit.unit_short || item.selected_unit.unit_name}</span>}
                 </div>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => updateQty(item.id, item.selected_unit?.id, -1)} className="w-5 h-5 rounded-full bg-white border border-border flex items-center justify-center hover:bg-muted transition"><Minus className="w-2.5 h-2.5" /></button>
-                <span className="text-xs font-bold w-5 text-center">{item.quantity}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={item.quantity}
+                  onChange={e => updateCartQuantity(item.id, item.selected_unit?.id, parseFloat(e.target.value) || 0)}
+                  onClick={e => e.stopPropagation()}
+                  className="w-10 text-xs font-bold border border-border rounded px-1 py-0.5 text-center focus:outline-none focus:border-blue-400 bg-white"
+                />
                 <button onClick={() => updateQty(item.id, item.selected_unit?.id, 1)} className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 transition"><Plus className="w-2.5 h-2.5" /></button>
               </div>
               <button onClick={() => removeFromCart(item.id, item.selected_unit?.id || undefined)} className="text-muted-foreground hover:text-red-500 transition"><X className="w-3.5 h-3.5" /></button>
