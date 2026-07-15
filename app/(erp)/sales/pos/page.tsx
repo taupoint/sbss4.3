@@ -241,6 +241,11 @@ export default function POSPage() {
     setCart(prev => prev.map(i => {
       if (i.id !== id || (unitId && i.selected_unit?.id !== unitId)) return i;
       const baseQty = i.selected_unit ? convertToBaseUnit(newQty, i.selected_unit) : newQty;
+      if (baseQty > i.stock_available) {
+        toast({ title: 'Stock limit', description: `Only ${i.stock_available} ${i.selected_unit ? 'base units' : 'units'} available`, variant: 'destructive' });
+        const maxQty = i.selected_unit ? i.stock_available / i.selected_unit.conversion_factor : i.stock_available;
+        return { ...i, quantity: maxQty, base_quantity: i.stock_available };
+      }
       return { ...i, quantity: newQty, base_quantity: baseQty };
     }));
   }
@@ -738,6 +743,7 @@ export default function POSPage() {
                 key={p.id}
                 className="bg-white rounded-xl border border-border p-3 text-left hover:border-blue-400 hover:shadow-md transition-all group relative"
               >
+                {/* group class stays for image-btn opacity; cost overlay uses a separate nested group below */}
                 {/* Image change button (top-right, appears on hover) */}
                 <button
                   onClick={(e) => { e.stopPropagation(); setImageModalProduct(p); setImageModalUrl(p.image_url || ''); setImageModalIsDefault(false); setShowImageModal(true); }}
@@ -765,27 +771,29 @@ export default function POSPage() {
                         <Package className="w-8 h-8 text-muted-foreground/40" />
                       </div>
                     ) : null}
-
-                    {/* Hover-to-reveal cost price overlay */}
-                    <div
-                      className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <p className="text-[10px] text-white/70 uppercase tracking-wide">Cost Price</p>
-                      <p className="text-sm font-bold text-white">{formatCurrency(p.cost_price || 0)}</p>
-                      <p className="text-[10px] text-green-400 mt-0.5">
-                        Profit: {formatCurrency((displayPrice || 0) - (p.cost_price || 0))}
-                      </p>
-                    </div>
                   </div>
                   <p className="text-xs font-semibold text-foreground leading-tight mb-0.5 line-clamp-2">{p.name}</p>
                   <p className="text-[10px] text-muted-foreground mb-1">{p.sku}</p>
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-blue-600">{formatCurrency(displayPrice)}</p>
+                    {/* Price area — hovering here reveals cost/profit tooltip */}
+                    <div className="relative group/price">
+                      <p className="text-sm font-bold text-blue-600 cursor-default">{formatCurrency(displayPrice)}</p>
                       {multiUnit && saleUnit && (
                         <p className="text-[9px] text-muted-foreground">per {saleUnit.unit_name}</p>
                       )}
+                      {/* Cost price & profit tooltip — only visible on price area hover */}
+                      <div
+                        className="absolute bottom-full left-0 mb-1.5 z-30 min-w-[120px] bg-slate-800 text-white rounded-lg px-2.5 py-2 shadow-xl pointer-events-none opacity-0 group-hover/price:opacity-100 transition-opacity duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <p className="text-[9px] text-white/60 uppercase tracking-wide mb-0.5">Cost Price</p>
+                        <p className="text-xs font-bold">{formatCurrency(p.cost_price || 0)}</p>
+                        <p className="text-[10px] text-green-400 mt-0.5">
+                          Profit: {formatCurrency((displayPrice || 0) - (p.cost_price || 0))}
+                        </p>
+                        {/* Small arrow */}
+                        <div className="absolute top-full left-3 w-0 h-0 border-x-4 border-x-transparent border-t-4 border-t-slate-800" />
+                      </div>
                     </div>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded ${available > 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>{available}</span>
                   </div>
@@ -901,7 +909,7 @@ export default function POSPage() {
                   value={item.quantity}
                   onChange={e => updateCartQuantity(item.id, item.selected_unit?.id, parseFloat(e.target.value) || 0)}
                   onClick={e => e.stopPropagation()}
-                  className="w-10 text-xs font-bold border border-border rounded px-1 py-0.5 text-center focus:outline-none focus:border-blue-400 bg-white"
+                  className="w-16 text-xs font-bold border border-border rounded px-1 py-0.5 text-center focus:outline-none focus:border-blue-400 bg-white"
                 />
                 <button onClick={() => updateQty(item.id, item.selected_unit?.id, 1)} className="w-5 h-5 rounded-full bg-blue-500 text-white flex items-center justify-center hover:bg-blue-600 transition"><Plus className="w-2.5 h-2.5" /></button>
               </div>
