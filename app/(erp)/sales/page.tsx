@@ -426,6 +426,8 @@ export default function SalesPage() {
     if (filterStatus === 'refundable') {
       // Invoices eligible for return (paid or partially paid, with remaining balance)
       if (i.status !== 'paid' && i.status !== 'partially_paid') return false;
+    } else if (filterStatus === 'paid_partial') {
+      if (i.status !== 'paid' && i.status !== 'partially_paid') return false;
     } else if (filterStatus === 'refunded') {
       // Invoices that have any sales returns OR status is explicitly refunded
       const hasReturns = i.sales_returns && i.sales_returns.length > 0;
@@ -541,6 +543,7 @@ export default function SalesPage() {
           </div>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none">
             <option value="">All Status</option>
+            <option value="paid_partial">Paid & Partial</option>
             {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select value={filterPaymentMethod} onChange={e => setFilterPaymentMethod(e.target.value)} className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none">
@@ -907,7 +910,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
       return;
     }
 
-    setItems(prev => [...prev, {
+    setItems(prev => [{
       product_id: product.id,
       product_name: product.name,
       product_sku: product.sku,
@@ -921,7 +924,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
       selected_unit: defaultUnit,
       available_units: multiUnit ? product.units.filter((u: any) => u.is_active) : undefined,
       base_quantity: baseQty,
-    }]);
+    }, ...prev]);
   }
 
   function updateItem(index: number, field: string, value: any) {

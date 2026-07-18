@@ -45,6 +45,8 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
     invoice_date: invoice.invoice_date,
     due_date: invoice.due_date || '',
     notes: (invoice as any).notes || '',
+    cart_discount_percent: 0,
+    extra_discount: Number((invoice as any).extra_discount) || 0,
   });
   const [items, setItems] = useState<EditItem[]>([]);
   const [originalItems, setOriginalItems] = useState<EditItem[]>([]);
@@ -188,8 +190,11 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+  const itemDiscountTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price - item.subtotal), 0);
+  const cartDiscountAmount = (subtotal * (form.cart_discount_percent || 0)) / 100;
+  const totalAmount = Math.max(0, subtotal - cartDiscountAmount - (form.extra_discount || 0));
   const hasItemChanges = JSON.stringify(items.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, discount_percent: i.discount_percent, selected_unit_id: i.selected_unit?.id }))) !== JSON.stringify(originalItems.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, discount_percent: i.discount_percent, selected_unit_id: i.selected_unit?.id })));
-  const hasHeaderChanges = form.customer_id !== originalHeader.customer_id || form.invoice_date !== originalHeader.invoice_date || form.due_date !== originalHeader.due_date || form.notes !== originalHeader.notes;
+  const hasHeaderChanges = form.customer_id !== originalHeader.customer_id || form.invoice_date !== originalHeader.invoice_date || form.due_date !== originalHeader.due_date || form.notes !== originalHeader.notes || (form.cart_discount_percent || 0) !== (originalHeader.cart_discount_percent || 0) || (form.extra_discount || 0) !== (originalHeader.extra_discount || 0);
   const hasChanges = hasItemChanges || hasHeaderChanges;
 
   useEffect(() => {
@@ -231,6 +236,7 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
         invoice_date: form.invoice_date,
         due_date: form.due_date || null,
         notes: form.notes || null,
+        extra_discount: form.extra_discount || 0,
         items: newItems,
       };
 
@@ -413,10 +419,57 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
 
           {/* Total */}
           <div className="flex justify-end bg-muted/30 rounded-lg p-3">
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">New Subtotal</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(subtotal)}</p>
-              {subtotal !== Number(invoice.total_amount) && (
+            <div className="text-right w-full max-w-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">Subtotal</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(subtotal + itemDiscountTotal)}</p>
+              </div>
+              {itemDiscountTotal > 0 && (
+                <div className="flex justify-between text-xs text-amber-600">
+                  <span>Item Discounts</span>
+                  <span>-{formatCurrency(itemDiscountTotal)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2">
+                <label className="text-xs text-muted-foreground">Cart Discount %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={form.cart_discount_percent || 0}
+                  onChange={e => setForm({ ...form, cart_discount_percent: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                  className="w-20 border border-border rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              {cartDiscountAmount > 0 && (
+                <div className="flex justify-between text-xs text-red-500">
+                  <span>Cart Discount ({form.cart_discount_percent || 0}%)</span>
+                  <span>-{formatCurrency(cartDiscountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2">
+                <label className="text-xs text-muted-foreground">Extra Discount ৳</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.extra_discount || 0}
+                  onChange={e => setForm({ ...form, extra_discount: parseFloat(e.target.value) || 0 })}
+                  className="w-24 border border-border rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              {(form.extra_discount || 0) > 0 && (
+                <div className="flex justify-between text-xs text-red-500">
+                  <span>Extra Discount</span>
+                  <span>-{formatCurrency(form.extra_discount || 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-1 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground">New Total</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(totalAmount)}</p>
+              </div>
+              {totalAmount !== Number(invoice.total_amount) && (
                 <p className="text-[10px] text-blue-600">Was: {formatCurrency(Number(invoice.total_amount))}</p>
               )}
             </div>

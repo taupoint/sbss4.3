@@ -200,7 +200,7 @@ export default function POSPage() {
         return updated;
       }
 
-      return [...prev, {
+      return [{
         id: product.id,
         name: product.name,
         sku: product.sku,
@@ -215,7 +215,7 @@ export default function POSPage() {
         unit_price: unitPrice,
         base_quantity: convertToBaseUnit(1, unit),
         discount_percent: 0,
-      }];
+      }, ...prev];
     });
 
     setUnitSelectorProduct(null);

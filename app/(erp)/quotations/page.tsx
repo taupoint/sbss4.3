@@ -483,7 +483,7 @@ function CreateQuotationModal({ customers: initialCustomers, products, onClose, 
       return;
     }
 
-    setItems(prev => [...prev, {
+    setItems(prev => [{
       product_id: product.id,
       product_name: product.name,
       product_sku: product.sku,
@@ -497,7 +497,7 @@ function CreateQuotationModal({ customers: initialCustomers, products, onClose, 
       available_units: multiUnit ? product.units.filter((u: any) => u.is_active) : undefined,
       base_quantity: baseQty,
       cost_price: costPrice,
-    }]);
+    }, ...prev]);
   }
 
   function updateItem(index: number, field: string, value: any) {
