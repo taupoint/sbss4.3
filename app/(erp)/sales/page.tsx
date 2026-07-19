@@ -340,6 +340,8 @@ export default function SalesPage() {
               }))}
               subtotal={Number(invoice.subtotal)}
               discountTotal={discountTotal}
+              cartDiscount={Number((invoice as any).discount_amount) || 0}
+              cartDiscountPercent={Number((invoice as any).cart_discount_percent) || 0}
               extraDiscount={Number((invoice as any).extra_discount) || 0}
               hideDiscountPercent={hideDiscountPercent}
               totalAmount={Number(invoice.total_amount)}
@@ -425,6 +427,8 @@ export default function SalesPage() {
     if (search && !i.invoice_number.toLowerCase().includes(search.toLowerCase()) && !i.customer?.name?.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus === 'refundable') {
       // Invoices eligible for return (paid or partially paid, with remaining balance)
+      if (i.status !== 'paid' && i.status !== 'partially_paid') return false;
+    } else if (filterStatus === 'paid_partial') {
       if (i.status !== 'paid' && i.status !== 'partially_paid') return false;
     } else if (filterStatus === 'refunded') {
       // Invoices that have any sales returns OR status is explicitly refunded
@@ -541,6 +545,7 @@ export default function SalesPage() {
           </div>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none">
             <option value="">All Status</option>
+            <option value="paid_partial">Paid & Partial</option>
             {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
           <select value={filterPaymentMethod} onChange={e => setFilterPaymentMethod(e.target.value)} className="border border-border rounded-lg px-3 py-2 text-sm focus:outline-none">
@@ -847,6 +852,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
     payment_method: 'cash' as PaymentMethod,
     payment_reference: '',
     extra_discount: 0,
+    cart_discount_percent: 0,
   });
   const [items, setItems] = useState<{
     product_id: string;
@@ -907,7 +913,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
       return;
     }
 
-    setItems(prev => [...prev, {
+    setItems(prev => [{
       product_id: product.id,
       product_name: product.name,
       product_sku: product.sku,
@@ -921,7 +927,7 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
       selected_unit: defaultUnit,
       available_units: multiUnit ? product.units.filter((u: any) => u.is_active) : undefined,
       base_quantity: baseQty,
-    }]);
+    }, ...prev]);
   }
 
   function updateItem(index: number, field: string, value: any) {
@@ -968,7 +974,8 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
   const subtotal = items.reduce((sum, item) => {
     return sum + item.quantity * item.unit_price * (1 - (item.discount_percent || 0) / 100);
   }, 0);
-  const totalAmount = Math.max(0, subtotal - (form.extra_discount || 0));
+  const cartDiscountAmount = (subtotal * (form.cart_discount_percent || 0)) / 100;
+  const totalAmount = Math.max(0, subtotal - cartDiscountAmount - (form.extra_discount || 0));
   const amountPaid = form.payment_type === 'full' ? totalAmount : (form.payment_type === 'partial' ? form.amount_paid : 0);
 
   async function handleAddCustomer(newCustomerId: string) {
@@ -1008,6 +1015,8 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
         invoice_date: form.invoice_date,
         due_date: form.due_date || null,
         subtotal,
+        cart_discount_percent: form.cart_discount_percent || 0,
+        discount_amount: cartDiscountAmount,
         extra_discount: form.extra_discount || 0,
         total_amount: totalAmount,
         amount_paid: amountPaid,
@@ -1318,6 +1327,24 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
                 <p className="text-sm font-semibold text-foreground">{formatCurrency(subtotal)}</p>
               </div>
               <div className="flex justify-between items-center gap-2">
+                <label className="text-xs text-muted-foreground">Cart Discount %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={form.cart_discount_percent || 0}
+                  onChange={e => setForm({ ...form, cart_discount_percent: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                  className="w-24 border border-border rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              {(form.cart_discount_percent || 0) > 0 && (
+                <div className="flex justify-between text-xs text-red-500">
+                  <span>Cart Discount ({form.cart_discount_percent}%)</span>
+                  <span>-{formatCurrency(cartDiscountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2">
                 <label className="text-xs text-muted-foreground">Extra Discount ৳</label>
                 <input
                   type="number"
@@ -1415,12 +1442,12 @@ function CreateInvoiceModal({ customers, products, onClose, onSaved }: {
                     <input
                       type="number"
                       min="0.01"
-                      max={subtotal - 0.01}
+                      max={totalAmount - 0.01}
                       step="0.01"
                       value={form.amount_paid}
                       onChange={e => setForm({ ...form, amount_paid: parseFloat(e.target.value) || 0 })}
                       className="w-full border border-green-300 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                      placeholder={`Enter amount (Max: ${formatCurrency(subtotal)})`}
+                      placeholder={`Enter amount (Max: ${formatCurrency(totalAmount)})`}
                     />
                     <p className="text-xs text-green-700 mt-1 font-medium">
                       Balance Due After Payment: {formatCurrency(totalAmount - form.amount_paid)}

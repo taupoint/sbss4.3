@@ -45,7 +45,13 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
     invoice_date: invoice.invoice_date,
     due_date: invoice.due_date || '',
     notes: (invoice as any).notes || '',
+    cart_discount_percent: Number((invoice as any).cart_discount_percent) || 0,
+    extra_discount: Number((invoice as any).extra_discount) || 0,
+    payment_term: 'full' as 'full' | 'partial' | 'credit',
+    payment_method: 'cash',
+    partial_amount: 0,
   });
+  const [paymentMethods, setPaymentMethods] = useState<{ code: string; name: string }[]>([]);
   const [items, setItems] = useState<EditItem[]>([]);
   const [originalItems, setOriginalItems] = useState<EditItem[]>([]);
   const [originalQtyMap, setOriginalQtyMap] = useState<Record<string, number>>({});
@@ -63,7 +69,40 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
 
   useEffect(() => {
     loadInvoiceItems();
+    loadPaymentInfo();
+    loadPaymentMethods();
   }, []);
+
+  async function loadPaymentMethods() {
+    const { data } = await supabase.from('payment_methods').select('code, name').eq('is_active', true).order('sort_order');
+    setPaymentMethods(data || []);
+  }
+
+  async function loadPaymentInfo() {
+    const { data } = await supabase
+      .from('payments')
+      .select('payment_method, amount, payment_type')
+      .eq('reference_type', 'invoice')
+      .eq('reference_id', invoice.id)
+      .order('created_at', { ascending: true });
+    const payments = data || [];
+    let loaded: { payment_term: 'full' | 'partial' | 'credit'; payment_method: string; partial_amount: number };
+    if (payments.length === 0) {
+      loaded = { payment_term: 'credit', payment_method: 'cash', partial_amount: 0 };
+    } else {
+      const totalPaid = payments.filter(p => p.payment_type === 'received').reduce((s, p) => s + Number(p.amount), 0);
+      const invoiceTotal = Number(invoice.total_amount);
+      if (totalPaid >= invoiceTotal && invoiceTotal > 0) {
+        loaded = { payment_term: 'full', payment_method: payments[payments.length - 1].payment_method || 'cash', partial_amount: 0 };
+      } else if (totalPaid > 0) {
+        loaded = { payment_term: 'partial', payment_method: payments[payments.length - 1].payment_method || 'cash', partial_amount: totalPaid };
+      } else {
+        loaded = { payment_term: 'credit', payment_method: 'cash', partial_amount: 0 };
+      }
+    }
+    setForm(f => ({ ...f, ...loaded }));
+    setOriginalHeader(h => ({ ...h, ...loaded }));
+  }
 
   async function loadInvoiceItems() {
     setLoadingItems(true);
@@ -188,8 +227,11 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
   }
 
   const subtotal = items.reduce((sum, item) => sum + item.subtotal, 0);
+  const itemDiscountTotal = items.reduce((sum, item) => sum + (item.quantity * item.unit_price - item.subtotal), 0);
+  const cartDiscountAmount = (subtotal * (form.cart_discount_percent || 0)) / 100;
+  const totalAmount = Math.max(0, subtotal - cartDiscountAmount - (form.extra_discount || 0));
   const hasItemChanges = JSON.stringify(items.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, discount_percent: i.discount_percent, selected_unit_id: i.selected_unit?.id }))) !== JSON.stringify(originalItems.map(i => ({ product_id: i.product_id, quantity: i.quantity, unit_price: i.unit_price, discount_percent: i.discount_percent, selected_unit_id: i.selected_unit?.id })));
-  const hasHeaderChanges = form.customer_id !== originalHeader.customer_id || form.invoice_date !== originalHeader.invoice_date || form.due_date !== originalHeader.due_date || form.notes !== originalHeader.notes;
+  const hasHeaderChanges = form.customer_id !== originalHeader.customer_id || form.invoice_date !== originalHeader.invoice_date || form.due_date !== originalHeader.due_date || form.notes !== originalHeader.notes || (form.cart_discount_percent || 0) !== (originalHeader.cart_discount_percent || 0) || (form.extra_discount || 0) !== (originalHeader.extra_discount || 0) || form.payment_term !== originalHeader.payment_term || form.payment_method !== originalHeader.payment_method || form.partial_amount !== originalHeader.partial_amount;
   const hasChanges = hasItemChanges || hasHeaderChanges;
 
   useEffect(() => {
@@ -231,6 +273,11 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
         invoice_date: form.invoice_date,
         due_date: form.due_date || null,
         notes: form.notes || null,
+        extra_discount: form.extra_discount || 0,
+        cart_discount_percent: form.cart_discount_percent || 0,
+        payment_term: form.payment_term,
+        payment_method: form.payment_method,
+        partial_amount: form.payment_term === 'partial' ? form.partial_amount : 0,
         items: newItems,
       };
 
@@ -413,10 +460,57 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
 
           {/* Total */}
           <div className="flex justify-end bg-muted/30 rounded-lg p-3">
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">New Subtotal</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(subtotal)}</p>
-              {subtotal !== Number(invoice.total_amount) && (
+            <div className="text-right w-full max-w-xs space-y-2">
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">Subtotal</p>
+                <p className="text-sm font-semibold text-foreground">{formatCurrency(subtotal + itemDiscountTotal)}</p>
+              </div>
+              {itemDiscountTotal > 0 && (
+                <div className="flex justify-between text-xs text-amber-600">
+                  <span>Item Discounts</span>
+                  <span>-{formatCurrency(itemDiscountTotal)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2">
+                <label className="text-xs text-muted-foreground">Cart Discount %</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.5"
+                  value={form.cart_discount_percent || 0}
+                  onChange={e => setForm({ ...form, cart_discount_percent: Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                  className="w-20 border border-border rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              {cartDiscountAmount > 0 && (
+                <div className="flex justify-between text-xs text-red-500">
+                  <span>Cart Discount ({form.cart_discount_percent || 0}%)</span>
+                  <span>-{formatCurrency(cartDiscountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2">
+                <label className="text-xs text-muted-foreground">Extra Discount ৳</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.extra_discount || 0}
+                  onChange={e => setForm({ ...form, extra_discount: parseFloat(e.target.value) || 0 })}
+                  className="w-24 border border-border rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+              {(form.extra_discount || 0) > 0 && (
+                <div className="flex justify-between text-xs text-red-500">
+                  <span>Extra Discount</span>
+                  <span>-{formatCurrency(form.extra_discount || 0)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-1 border-t border-border">
+                <p className="text-xs font-medium text-muted-foreground">New Total</p>
+                <p className="text-lg font-bold text-foreground">{formatCurrency(totalAmount)}</p>
+              </div>
+              {totalAmount !== Number(invoice.total_amount) && (
                 <p className="text-[10px] text-blue-600">Was: {formatCurrency(Number(invoice.total_amount))}</p>
               )}
             </div>
@@ -435,6 +529,62 @@ export default function EditInvoiceModal({ invoice, customers, products, onClose
                 placeholder="Why is this invoice being edited? (e.g. 'Wrong price entered', 'Product added by mistake')"
                 className="w-full border border-blue-300 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
+            </div>
+          )}
+
+          {/* Payment Term & Method */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-medium mb-1">Payment Term</label>
+              <select
+                value={form.payment_term}
+                onChange={e => setForm({ ...form, payment_term: e.target.value as any, partial_amount: e.target.value === 'partial' ? form.partial_amount : 0 })}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              >
+                <option value="full">Full Payment</option>
+                <option value="partial">Partial Payment</option>
+                <option value="credit">On Credit</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1">Payment Method</label>
+              <select
+                value={form.payment_method}
+                onChange={e => setForm({ ...form, payment_method: e.target.value })}
+                disabled={form.payment_term === 'credit'}
+                className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-muted disabled:text-muted-foreground"
+              >
+                {paymentMethods.length > 0 ? (
+                  paymentMethods.map(pm => <option key={pm.code} value={pm.code}>{pm.name}</option>)
+                ) : (
+                  <>
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="mobile_banking">Mobile Banking</option>
+                  </>
+                )}
+              </select>
+            </div>
+            {form.payment_term === 'partial' && (
+              <div>
+                <label className="block text-xs font-medium mb-1">Partial Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  max={totalAmount}
+                  step="0.01"
+                  value={form.partial_amount}
+                  onChange={e => setForm({ ...form, partial_amount: Math.min(totalAmount, Math.max(0, parseFloat(e.target.value) || 0)) })}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+            )}
+          </div>
+          {form.payment_term === 'partial' && form.partial_amount > 0 && (
+            <div className="flex justify-between text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-1.5">
+              <span>Balance Due After Payment</span>
+              <span className="font-semibold">{formatCurrency(Math.max(0, totalAmount - form.partial_amount))}</span>
             </div>
           )}
 
